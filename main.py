@@ -1,7 +1,6 @@
 import pygame
 import os
 import sys
-from math import gcd
 from PIL import Image, ImageSequence
 
 pygame.init()
@@ -9,7 +8,10 @@ pygame.display.set_caption('Guardian')
 size = width, height = 1200, 600
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
-FAST = 5
+FAST = 7
+GRAVITY = 10
+JUMP = 7
+TIME_JUMP = 20
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
@@ -94,8 +96,9 @@ class Mag(pygame.sprite.Sprite):
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
         self.move_x = 0
-        self.move_y = 10
+        self.move_y = GRAVITY
         self.v = True
+        self.jump = 0
 
     def update(self):
         if self.move_x > 0 and self.v:
@@ -106,6 +109,10 @@ class Mag(pygame.sprite.Sprite):
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
             self.v = True
+        if self.jump == 0:
+            self.move_y = GRAVITY
+        else:
+            self.jump -= 1
         self.rect = self.rect.move(self.move_x, self.move_y)
         if pygame.sprite.collide_mask(self, gold):
             self.rect = self.rect.move(-self.move_x, -self.move_y)
@@ -123,6 +130,10 @@ class Mag(pygame.sprite.Sprite):
 
     def boom(self):
         all_sprites.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * 2 * FAST))
+
+    def jumper(self):
+        self.move_y = -JUMP
+        self.jump = TIME_JUMP
 
 
 class Fireball(pygame.sprite.Sprite):
@@ -209,6 +220,8 @@ if __name__ == '__main__':
                 mag.move(1, 0)
             if event.type == pygame.KEYUP and (event.key == 100):
                 mag.move(-1, 0)
+            if event.type == pygame.KEYUP and (event.key == 32):
+                mag.jumper()
             if event.type == pygame.MOUSEMOTION:
                 if not flag:
                     flag = True
