@@ -9,10 +9,11 @@ size = width, height = 1200, 800
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
 FAST = 7
+FAST_BOOM = 14
 JUMP = 20
 FLOOR_GRAVITY = 8
 PLATFORM_GRAVITY = 2
-SHOTS_PER_SECOND = 10 # 65 - 70 максимум
+SHOTS_PER_SECOND = 2 # 65 - 70 максимум при скорости FAST_BOOM 14
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
 
@@ -105,31 +106,34 @@ class Mag(pygame.sprite.Sprite):
         self.v = True
         self.jump = 0
         self.kol_jump = 0
+        all_sprites.add(self)
+
+        self.floor = Border(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0, 1)
 
     def update(self):
         if self.move_x > 0 and self.v:
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
-            floor.rect = floor.rect.move(5, 0)
+            self.floor.rect = self.floor.rect.move(5, 0)
             self.v = False
         if self.move_x < 0 and not self.v:
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
-            floor.rect = floor.rect.move(-5, 0)
+            self.floor.rect = self.floor.rect.move(-5, 0)
             self.v = True
 
         self.rect = self.rect.move(self.move_x, self.move_y)
-        floor.rect = floor.rect.move(self.move_x, self.move_y)
+        self.floor.rect = self. floor.rect.move(self.move_x, self.move_y)
 
         if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                or (pygame.sprite.spritecollideany(floor, platforms) and self.move_y > 0):
+                or (pygame.sprite.spritecollideany(self.floor, platforms) and self.move_y > 0):
             if pygame.sprite.spritecollideany(self, horizontal_borders):
                 k = FLOOR_GRAVITY
             else:
                 k = PLATFORM_GRAVITY
 
             self.rect = self.rect.move(0, -self.move_y)
-            floor.rect = floor.rect.move(0, -self.move_y)
+            self.floor.rect = self.floor.rect.move(0, -self.move_y)
 
             self.move_y = k
             self.kol_jump = 0
@@ -137,7 +141,7 @@ class Mag(pygame.sprite.Sprite):
             self.move_y += 1
         if pygame.sprite.spritecollideany(self, vertical_borders):
             self.rect = self.rect.move(-self.move_x, 0)
-            floor.rect = floor.rect.move(-self.move_x, 0)
+            self.floor.rect = self.floor.rect.move(-self.move_x, 0)
 
     def move(self, x, y):
         self.move_x += x * FAST
@@ -147,7 +151,7 @@ class Mag(pygame.sprite.Sprite):
         return (self.rect.x, self.rect.y)
 
     def boom(self):
-        all_sprites.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * 2 * FAST))
+        all_sprites.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * FAST_BOOM))
 
     def jumper(self):
         self.kol_jump += 1
@@ -232,10 +236,7 @@ if __name__ == '__main__':
     gold.rect.topleft = ((width - gold_image.get_width()) // 2, (height - gold_image.get_height()) // 2 + 330)
 
     # main character
-    jump = 1
     mag = Mag((X_MAG_POS, Y_MAG_POS))
-    floor = Border(X_MAG_POS,  Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0, 1)
-    all_sprites.add(mag)
     running = True
     fps = 60
     bgfps = 0
@@ -253,6 +254,7 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            # mag
             if event.type == pygame.KEYDOWN and (event.key == 97):
                 mag.move(-1, 0)
             if event.type == pygame.KEYUP and (event.key == 97):
@@ -263,6 +265,17 @@ if __name__ == '__main__':
                 mag.move(-1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
+
+            #mag2
+            # if event.type == pygame.KEYDOWN and (event.key == 1073741904):
+            #     mag2.move(-1, 0)
+            # if event.type == pygame.KEYUP and (event.key == 1073741904):
+            #     mag2.move(1, 0)
+            # if event.type == pygame.KEYDOWN and (event.key == 1073741903):
+            #     mag2.move(1, 0)
+            # if event.type == pygame.KEYUP and (event.key == 1073741903):
+            #     mag2.move(-1, 0)
+
             if event.type == pygame.MOUSEMOTION:
                 if not flag:
                     flag = True
