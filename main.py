@@ -9,13 +9,16 @@ pygame.display.set_caption('Guardian')
 size = width, height = 1200, 800
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
+screen_rect = (0, 0, width, height)
 FAST = 7
 FAST_BOOM = 14
+FAST_MOB = 2
 JUMP = 20
 FLOOR_GRAVITY = 8
+GRAVITY = 0.3
 PLATFORM_GRAVITY = 2
-SHOTS_PER_SECOND = 2 # 65 - 70 максимум при скорости FAST_BOOM 14
-MOBS_PER_SECOND = 0.5
+SHOTS_PER_SECOND = 2  # 65 - 70 максимум при скорости FAST_BOOM 14
+MOBS_PER_SECOND = 1
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
 RESPAWNS = [(0, 0), (200, 0)]
@@ -128,25 +131,21 @@ class Mag(pygame.sprite.Sprite):
             self.v = True
 
         self.rect = self.rect.move(self.move_x, self.move_y)
-        self.floor.rect = self. floor.rect.move(self.move_x, self.move_y)
+        self.floor.rect = self.floor.rect.move(self.move_x, self.move_y)
 
         if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
                 or (pygame.sprite.spritecollideany(self.floor, platforms) and self.move_y > 0):
-            if pygame.sprite.spritecollideany(self, horizontal_borders):
-                k = FLOOR_GRAVITY
-            else:
-                k = PLATFORM_GRAVITY
-
-            self.rect = self.rect.move(0, -self.move_y)
-            self.floor.rect = self.floor.rect.move(0, -self.move_y)
-
-            self.move_y = k
+            while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                or (pygame.sprite.spritecollideany(self.floor, platforms)):
+                self.rect = self.rect.move(0, -1)
+                self.floor.rect = self.floor.rect.move(0, -1)
+            self.move_y = 0
             self.kol_jump = 0
         else:
             self.move_y += 1
-        if pygame.sprite.spritecollideany(self, vertical_borders):
-            self.rect = self.rect.move(-self.move_x, 0)
-            self.floor.rect = self.floor.rect.move(-self.move_x, 0)
+        while pygame.sprite.spritecollideany(self, vertical_borders):
+            self.rect = self.rect.move(-1, 0)
+            self.floor.rect = self.floor.rect.move(-1, 0)
 
     def move(self, x, y):
         self.move_x += x * FAST
@@ -237,50 +236,97 @@ class Mob(pygame.sprite.Sprite):
         self.rect.y = pos[1]
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
-        self.move_x = 0
+        self.move_x = (((width // 2) - self.rect.x) // abs((width // 2) - self.rect.x)) * FAST_MOB
         self.move_y = 0
         self.add(mobs)
         self.v = True
 
-        self.floor = Border(self.rect.x, self.rect.y + 50, self.rect.x + 50, self.rect.y + 50, 255, 1)
+        self.platform = False
+        self.rx = 1
 
     def update(self):
         if self.move_x > 0 and self.v:
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
-            self.floor.rect = self.floor.rect.move(5, 0)
             self.v = False
         if self.move_x < 0 and not self.v:
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
-            self.floor.rect = self.floor.rect.move(-5, 0)
             self.v = True
 
         self.rect = self.rect.move(self.move_x, self.move_y)
-        self.floor.rect = self.floor.rect.move(self.move_x, self.move_y)
 
         if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                or (pygame.sprite.spritecollideany(self.floor, platforms) and self.move_y > 0):
+                or (pygame.sprite.spritecollideany(self, platforms) and self.move_y > 0):
             if pygame.sprite.spritecollideany(self, horizontal_borders):
-                k = FLOOR_GRAVITY
+                self.rx = 1
             else:
-                k = PLATFORM_GRAVITY
+                if not self.platform:
+                    self.rx = random.randint(0, 1) * 2 - 1
+                    self.platform = True
 
-            self.rect = self.rect.move(0, -self.move_y)
-            self.floor.rect = self.floor.rect.move(0, -self.move_y)
+            while (pygame.sprite.spritecollideany(self, horizontal_borders))\
+                    or (pygame.sprite.spritecollideany(self, platforms)):
+                self.rect = self.rect.move(0, -1)
 
-            self.move_y = k
+            self.move_y = 1
             self.kol_jump = 0
         else:
             self.move_y += 1
-        if pygame.sprite.spritecollideany(self, vertical_borders):
-            self.rect = self.rect.move(-self.move_x, 0)
-            self.floor.rect = self.floor.rect.move(-self.move_x, 0)
+            self.platform = False
+        while pygame.sprite.spritecollideany(self, vertical_borders):
+            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
+        if abs((width // 2) - self.rect.x):
+            self.move_x = (((width // 2) - self.rect.x) // abs((width // 2) - self.rect.x)) * FAST // 3 * self.rx
+        else:
+            self.move_x = 0
 
     def death(self):
         mobs.remove(self)
         all_sprites.remove(self)
+        create_particles((self.rect.x, self.rect.y))
         all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
+
+
+class Particle(pygame.sprite.Sprite):
+    # сгенерируем частицы разного размера
+    fire = [load_image("star.png")]
+    for scale in (5, 10, 20):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(all_sprites)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect()
+
+        # у каждой частицы своя скорость — это вектор
+        self.velocity = [dx, dy]
+        # и свои координаты
+        self.rect.x, self.rect.y = pos
+
+        # гравитация будет одинаковой (значение константы)
+        self.gravity = GRAVITY
+
+    def update(self):
+        # применяем гравитационный эффект:
+        # движение с ускорением под действием гравитации
+        self.velocity[1] += self.gravity
+        # перемещаем частицу
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        # убиваем, если частица ушла за экран
+        if not self.rect.colliderect(screen_rect):
+            self.kill()
+
+
+def create_particles(position):
+    # количество создаваемых частиц
+    particle_count = 20
+    # возможные скорости
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers))
+
 
 if __name__ == '__main__':
     # background
@@ -312,8 +358,8 @@ if __name__ == '__main__':
     pygame.mouse.set_visible(False)
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()  # starter tick
-    booms = 0
-    Mob()
+    kol_bombs = 0
+    kol_mobs = 0
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -348,9 +394,13 @@ if __name__ == '__main__':
 
         screen.fill((0, 0, 0))
 
-        if seconds > booms:
+        if seconds > kol_bombs:
             mag.boom()
-            booms += 1 / SHOTS_PER_SECOND
+            kol_bombs += 1 / SHOTS_PER_SECOND
+
+        if seconds > kol_mobs:
+            Mob()
+            kol_mobs += 1 / MOBS_PER_SECOND
 
         if bgfps % 300 == 0:
             currentFrame = (currentFrame + 1) % len(gifFrameList)
