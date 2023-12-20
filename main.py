@@ -144,8 +144,8 @@ class Mag(pygame.sprite.Sprite):
         else:
             self.move_y += 1
         while pygame.sprite.spritecollideany(self, vertical_borders):
-            self.rect = self.rect.move(-1, 0)
-            self.floor.rect = self.floor.rect.move(-1, 0)
+            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
+            self.floor.rect = self.floor.rect.move(-self.move_x // abs(self.move_x), 0)
 
     def move(self, x, y):
         self.move_x += x * FAST
