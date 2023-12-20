@@ -98,6 +98,15 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.fps += 1
 
 
+class Floor(pygame.sprite.Sprite):
+    def __init__(self, x1, y1, x2, y2, f):
+        super().__init__(all_sprites)
+        magg.add(self)
+        self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
+        self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
+        self.image.fill((0, 0, 0, f))
+
+
 class Mag(pygame.sprite.Sprite):
     image = load_image("mag.png")
 
@@ -116,36 +125,34 @@ class Mag(pygame.sprite.Sprite):
         self.kol_jump = 0
         all_sprites.add(self)
 
-        self.floor = Border(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0, 1)
-
     def update(self):
         if self.move_x > 0 and self.v:
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
-            self.floor.rect = self.floor.rect.move(5, 0)
+            floor.rect = floor.rect.move(5, 0)
             self.v = False
         if self.move_x < 0 and not self.v:
             self.image = pygame.transform.flip(self.image, True, False)
             self.mask = pygame.mask.from_surface(self.image)
-            self.floor.rect = self.floor.rect.move(-5, 0)
+            floor.rect = floor.rect.move(-5, 0)
             self.v = True
 
         self.rect = self.rect.move(self.move_x, self.move_y)
-        self.floor.rect = self.floor.rect.move(self.move_x, self.move_y)
+        floor.rect = floor.rect.move(self.move_x, self.move_y)
 
         if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                or (pygame.sprite.spritecollideany(self.floor, platforms) and self.move_y > 0):
+                or (pygame.sprite.spritecollideany(floor, platforms) and self.move_y > 0):
             while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                or (pygame.sprite.spritecollideany(self.floor, platforms)):
+                    or (pygame.sprite.spritecollideany(floor, platforms)):
                 self.rect = self.rect.move(0, -1)
-                self.floor.rect = self.floor.rect.move(0, -1)
+                floor.rect = floor.rect.move(0, -1)
             self.move_y = 0
             self.kol_jump = 0
         else:
             self.move_y += 1
         while pygame.sprite.spritecollideany(self, vertical_borders):
             self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
-            self.floor.rect = self.floor.rect.move(-self.move_x // abs(self.move_x), 0)
+            floor.rect = floor.rect.move(-self.move_x // abs(self.move_x), 0)
 
     def move(self, x, y):
         self.move_x += x * FAST
@@ -196,14 +203,14 @@ class Border(pygame.sprite.Sprite):
     def __init__(self, x1, y1, x2, y2, f, mag=0):
         super().__init__(all_sprites)
         if x1 == x2:  # вертикальная стенка
-            if mag:
-                self.add(magg)
-            else:
-                self.add(vertical_borders)
             self.image = pygame.Surface([1, y2 - y1], pygame.SRCALPHA)
             self.rect = pygame.Rect(x1, y1, 1, y2 - y1)
             self.image.fill((0, 0, 0, f))
         else:  # горизонтальная стенка
+            if mag:
+                self.add(magg)
+            else:
+                self.add(vertical_borders)
             self.add(horizontal_borders)
             self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
             self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
@@ -265,7 +272,7 @@ class Mob(pygame.sprite.Sprite):
                     self.rx = random.randint(0, 1) * 2 - 1
                     self.platform = True
 
-            while (pygame.sprite.spritecollideany(self, horizontal_borders))\
+            while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
                     or (pygame.sprite.spritecollideany(self, platforms)):
                 self.rect = self.rect.move(0, -1)
 
@@ -347,6 +354,8 @@ if __name__ == '__main__':
 
     # main character
     mag = Mag((X_MAG_POS, Y_MAG_POS))
+    floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0)
+    print(floor.groups())
     running = True
     fps = 60
     bgfps = 0
