@@ -2,6 +2,7 @@ import pygame
 import os
 import sys
 from PIL import Image, ImageSequence
+import random
 
 pygame.init()
 pygame.display.set_caption('Guardian')
@@ -14,13 +15,17 @@ JUMP = 20
 FLOOR_GRAVITY = 8
 PLATFORM_GRAVITY = 2
 SHOTS_PER_SECOND = 2 # 65 - 70 максимум при скорости FAST_BOOM 14
+MOBS_PER_SECOND = 0.5
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
+RESPAWNS = [(0, 0), (200, 0)]
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
 platforms = pygame.sprite.Group()
 magg = pygame.sprite.Group()
+shots = pygame.sprite.Group()
+mobs = pygame.sprite.Group()
 
 
 def pilImageToSurface(pilImage):
@@ -151,7 +156,7 @@ class Mag(pygame.sprite.Sprite):
         return (self.rect.x, self.rect.y)
 
     def boom(self):
-        all_sprites.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * FAST_BOOM))
+        shots.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * FAST_BOOM))
 
     def jumper(self):
         self.kol_jump += 1
@@ -174,15 +179,17 @@ class Fireball(pygame.sprite.Sprite):
         self.move_y = 0
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
-        self.boom = False
 
     def update(self):
-        if not self.boom:
-            self.rect = self.rect.move(self.move_x, self.move_y)
-            if self.rect.x < 0 or self.rect.x > width - 60:
-                all_sprites.remove(self)
-                self.boom = True
-                all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
+        self.rect = self.rect.move(self.move_x, self.move_y)
+        if self.rect.x < 0 or self.rect.x > width - 60:
+            shots.remove(self)
+            all_sprites.remove(self)
+            all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
+
+    def death(self):
+        shots.remove(self)
+        all_sprites.remove(self)
 
 
 class Border(pygame.sprite.Sprite):
@@ -218,6 +225,63 @@ class Platform(pygame.sprite.Sprite):
         self.add(platforms)
 
 
+class Mob(pygame.sprite.Sprite):
+    image = load_image("rober.png")
+
+    def __init__(self):
+        super().__init__(all_sprites)
+        self.image = Mob.image
+        self.rect = self.image.get_rect()
+        pos = RESPAWNS[random.randint(0, 1)]
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.move_x = 0
+        self.move_y = 0
+        self.add(mobs)
+        self.v = True
+
+        self.floor = Border(self.rect.x, self.rect.y + 50, self.rect.x + 50, self.rect.y + 50, 255, 1)
+
+    def update(self):
+        if self.move_x > 0 and self.v:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
+            self.floor.rect = self.floor.rect.move(5, 0)
+            self.v = False
+        if self.move_x < 0 and not self.v:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
+            self.floor.rect = self.floor.rect.move(-5, 0)
+            self.v = True
+
+        self.rect = self.rect.move(self.move_x, self.move_y)
+        self.floor.rect = self.floor.rect.move(self.move_x, self.move_y)
+
+        if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                or (pygame.sprite.spritecollideany(self.floor, platforms) and self.move_y > 0):
+            if pygame.sprite.spritecollideany(self, horizontal_borders):
+                k = FLOOR_GRAVITY
+            else:
+                k = PLATFORM_GRAVITY
+
+            self.rect = self.rect.move(0, -self.move_y)
+            self.floor.rect = self.floor.rect.move(0, -self.move_y)
+
+            self.move_y = k
+            self.kol_jump = 0
+        else:
+            self.move_y += 1
+        if pygame.sprite.spritecollideany(self, vertical_borders):
+            self.rect = self.rect.move(-self.move_x, 0)
+            self.floor.rect = self.floor.rect.move(-self.move_x, 0)
+
+    def death(self):
+        mobs.remove(self)
+        all_sprites.remove(self)
+        all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
+
 if __name__ == '__main__':
     # background
     Border(0, 760, width, 760, 0)
@@ -249,6 +313,7 @@ if __name__ == '__main__':
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()  # starter tick
     booms = 0
+    Mob()
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -266,16 +331,6 @@ if __name__ == '__main__':
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
 
-            #mag2
-            # if event.type == pygame.KEYDOWN and (event.key == 1073741904):
-            #     mag2.move(-1, 0)
-            # if event.type == pygame.KEYUP and (event.key == 1073741904):
-            #     mag2.move(1, 0)
-            # if event.type == pygame.KEYDOWN and (event.key == 1073741903):
-            #     mag2.move(1, 0)
-            # if event.type == pygame.KEYUP and (event.key == 1073741903):
-            #     mag2.move(-1, 0)
-
             if event.type == pygame.MOUSEMOTION:
                 if not flag:
                     flag = True
@@ -283,6 +338,14 @@ if __name__ == '__main__':
                 cursor.rect.topleft = event.pos
                 if event.pos[0] == 0 or event.pos[1] == 0:
                     cursor.rect.topleft = (width, height)
+
+        hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
+        hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
+        for hit in hits1:
+            hit.death()
+        for hit in hits2:
+            hit.death()
+
         screen.fill((0, 0, 0))
 
         if seconds > booms:
