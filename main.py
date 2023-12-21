@@ -65,7 +65,7 @@ def load_image(name, colorkey=None):
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y, coff):
+    def __init__(self, sheet, columns, rows, x, y, coff, dol_fps=0.5):
         super().__init__(all_sprites)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
@@ -74,6 +74,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.rect = self.rect.move(x, y)
         self.coff = coff
         self.fps = 0
+        self.dol_fps = dol_fps
 
     def cut_sheet(self, sheet, columns, rows):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
@@ -95,7 +96,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
                     self.image = self.frames[self.cur_frame]
                 else:
                     all_sprites.remove(self)
-        self.fps += 1
+        self.fps += self.dol_fps
 
 
 class Floor(pygame.sprite.Sprite):
@@ -203,6 +204,7 @@ class Border(pygame.sprite.Sprite):
     def __init__(self, x1, y1, x2, y2, f, mag=0):
         super().__init__(all_sprites)
         if x1 == x2:  # вертикальная стенка
+            self.add(vertical_borders)
             self.image = pygame.Surface([1, y2 - y1], pygame.SRCALPHA)
             self.rect = pygame.Rect(x1, y1, 1, y2 - y1)
             self.image.fill((0, 0, 0, f))
@@ -210,8 +212,7 @@ class Border(pygame.sprite.Sprite):
             if mag:
                 self.add(magg)
             else:
-                self.add(vertical_borders)
-            self.add(horizontal_borders)
+                self.add(horizontal_borders)
             self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
             self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
             self.image.fill((0, 0, 0, f))
@@ -335,6 +336,60 @@ def create_particles(position):
         Particle(position, random.choice(numbers), random.choice(numbers))
 
 
+def stop_window():
+    running = True
+    clock = pygame.time.Clock()
+    start_ticks = pygame.time.get_ticks()  # starter tick
+    kol_bombs = 0
+    kol_mobs = 0
+    while running:
+        seconds = (pygame.time.get_ticks() - start_ticks) / 1000
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEMOTION:
+                if not flag:
+                    flag = True
+                    all_sprites.add(cursor)
+                cursor.rect.topleft = event.pos
+                if event.pos[0] == 0 or event.pos[1] == 0:
+                    cursor.rect.topleft = (width, height)
+
+        screen.fill((0, 0, 0))
+
+        if bgfps % 300 == 0:
+            currentFrame = (currentFrame + 1) % len(gifFrameList)
+            bgfps = 0
+
+        rect = gifFrameList[currentFrame].get_rect(center=(width // 2, height // 2))
+        screen.blit(gifFrameList[currentFrame], rect)
+
+        clock.tick(fps)
+        bgfps += fps
+        all_sprites.draw(screen)
+        pygame.display.flip()
+
+
+class Game_clock():
+    def __init__(self):
+        self.x = width - 100
+        self.y = 100
+
+    def update(self, screen, seconds):
+        mins = str(int(seconds // 60))
+        if len(mins) < 2:
+            mins = "0" + mins
+        secs = str(int(seconds % 60 // 1))
+        if len(secs) < 2:
+            secs = "0" + secs
+        font = pygame.font.SysFont('freesanbold.ttf', 50)
+        text = font.render(f'{mins}:{secs}', True, (255, 0, 0))
+        textRect = text.get_rect()
+        textRect.center = (self.x, self.y)
+        screen.blit(text, textRect)
+
+
+
 if __name__ == '__main__':
     # background
     Border(0, 760, width, 760, 0)
@@ -355,7 +410,6 @@ if __name__ == '__main__':
     # main character
     mag = Mag((X_MAG_POS, Y_MAG_POS))
     floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0)
-    print(floor.groups())
     running = True
     fps = 60
     bgfps = 0
@@ -369,8 +423,11 @@ if __name__ == '__main__':
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0
     kol_mobs = 0
+    game_clock = Game_clock()
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
+        # if pygame.sprite.spritecollideany(gold, mobs):
+        #     running = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -385,6 +442,10 @@ if __name__ == '__main__':
                 mag.move(-1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
+            if event.type == pygame.KEYUP and (event.key == 13):
+                mag.boom()
+            if event.type == pygame.KEYUP and (event.key == 1073742052):
+                mag.boom()
 
             if event.type == pygame.MOUSEMOTION:
                 if not flag:
@@ -403,10 +464,6 @@ if __name__ == '__main__':
 
         screen.fill((0, 0, 0))
 
-        if seconds > kol_bombs:
-            mag.boom()
-            kol_bombs += 1 / SHOTS_PER_SECOND
-
         if seconds > kol_mobs:
             Mob()
             kol_mobs += 1 / MOBS_PER_SECOND
@@ -418,9 +475,12 @@ if __name__ == '__main__':
         rect = gifFrameList[currentFrame].get_rect(center=(width // 2, height // 2))
         screen.blit(gifFrameList[currentFrame], rect)
 
+
+        game_clock.update(screen, seconds)
         clock.tick(fps)
         bgfps += fps
         all_sprites.draw(screen)
         all_sprites.update()
         pygame.display.flip()
+
     pygame.quit()
