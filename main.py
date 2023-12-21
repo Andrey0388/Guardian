@@ -18,10 +18,10 @@ FLOOR_GRAVITY = 8
 GRAVITY = 0.3
 PLATFORM_GRAVITY = 2
 SHOTS_PER_SECOND = 2  # 65 - 70 максимум при скорости FAST_BOOM 14
-MOBS_PER_SECOND = 1
+MOBS_PER_SECOND = 0.5
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
-RESPAWNS = [(0, 0), (200, 0)]
+RESPAWNS = [(0, height - 200), (width - 50, height - 200), (100, 200), (width // 2, 5)]
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
@@ -65,7 +65,7 @@ def load_image(name, colorkey=None):
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y, coff, dol_fps=0.5):
+    def __init__(self, sheet, columns, rows, x, y, coff):
         super().__init__(all_sprites)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
@@ -74,7 +74,6 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.rect = self.rect.move(x, y)
         self.coff = coff
         self.fps = 0
-        self.dol_fps = dol_fps
 
     def cut_sheet(self, sheet, columns, rows):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
@@ -96,7 +95,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
                     self.image = self.frames[self.cur_frame]
                 else:
                     all_sprites.remove(self)
-        self.fps += self.dol_fps
+        self.fps += 1
 
 
 class Floor(pygame.sprite.Sprite):
@@ -239,18 +238,17 @@ class Mob(pygame.sprite.Sprite):
         super().__init__(all_sprites)
         self.image = Mob.image
         self.rect = self.image.get_rect()
-        pos = RESPAWNS[random.randint(0, 1)]
+        pos = RESPAWNS[random.randint(0, len(RESPAWNS) - 1)]
         self.rect.x = pos[0]
         self.rect.y = pos[1]
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
-        self.move_x = (((width // 2) - self.rect.x) // abs((width // 2) - self.rect.x)) * FAST_MOB
-        self.move_y = 0
+        self.platform = False
+        self.move_x = 0
+        self.move_y = 1
         self.add(mobs)
         self.v = True
-
-        self.platform = False
-        self.rx = 1
+        self.rx = random.randint(0, 1) * 2 - 1
 
     def update(self):
         if self.move_x > 0 and self.v:
@@ -282,12 +280,12 @@ class Mob(pygame.sprite.Sprite):
         else:
             self.move_y += 1
             self.platform = False
-        while pygame.sprite.spritecollideany(self, vertical_borders):
+        while pygame.sprite.spritecollideany(self, vertical_borders) and abs(self.move_x) > 0:
             self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
-        if abs((width // 2) - self.rect.x):
-            self.move_x = (((width // 2) - self.rect.x) // abs((width // 2) - self.rect.x)) * FAST // 3 * self.rx
+        if abs((width // 2) - self.rect.x) != 0:
+            self.move_x = (((width // 2) - self.rect.x) // abs((width // 2) - self.rect.x)) * FAST_MOB * self.rx
         else:
-            self.move_x = 0
+            self.move_x = self.rx
 
     def death(self):
         mobs.remove(self)
@@ -371,9 +369,10 @@ def stop_window():
 
 
 class Game_clock():
-    def __init__(self):
-        self.x = width - 100
-        self.y = 100
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.i = 0
 
     def update(self, screen, seconds):
         mins = str(int(seconds // 60))
@@ -382,11 +381,75 @@ class Game_clock():
         secs = str(int(seconds % 60 // 1))
         if len(secs) < 2:
             secs = "0" + secs
-        font = pygame.font.SysFont('freesanbold.ttf', 50)
-        text = font.render(f'{mins}:{secs}', True, (255, 0, 0))
+        font = pygame.font.SysFont(['segoescript', 'ocraextended', 'agencyfbполужирный', 'agencyfb'][self.i], 50)
+        t = f'{mins}:{secs}'
+        text = font.render(t, True, (255, 0, 0))
         textRect = text.get_rect()
         textRect.center = (self.x, self.y)
         screen.blit(text, textRect)
+
+    def a(self):
+        self.i -= 1
+        self.i %= 4
+
+    def d(self):
+        self.i += 1
+        self.i %= 4
+
+
+class Kills():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def update(self, screen, kills):
+        font = pygame.font.SysFont('segoescript', 50)
+        t = "Kills: " + str(kills)
+        text = font.render(t, True, (255, 0, 0))
+        textRect = text.get_rect()
+        textRect.topleft = (self.x, self.y)
+        screen.blit(text, textRect)
+
+
+# class Game_clock():
+#     def __init__(self, x, y):
+#         self.x = x
+#         self.y = y
+#         self.i = 0
+#
+#     def update(self, screen, seconds):
+#         mins = str(int(seconds // 60))
+#         if len(mins) < 2:
+#             mins = "0" + mins
+#         secs = str(int(seconds % 60 // 1))
+#         if len(secs) < 2:
+#             secs = "0" + secs
+#         font = pygame.font.SysFont(['segoescript', 'ocraextended', 'agencyfbполужирный', 'agencyfb'][self.i], 50)
+#         t = f'{mins}:{secs}'
+#         text = font.render(t, True, (255, 0, 0))
+#         textRect = text.get_rect()
+#         textRect.center = (self.x, self.y)
+#         screen.blit(text, textRect)
+#
+# class Game_clock():
+#     def __init__(self, x, y):
+#         self.x = x
+#         self.y = y
+#         self.i = 0
+#
+#     def update(self, screen, seconds):
+#         mins = str(int(seconds // 60))
+#         if len(mins) < 2:
+#             mins = "0" + mins
+#         secs = str(int(seconds % 60 // 1))
+#         if len(secs) < 2:
+#             secs = "0" + secs
+#         font = pygame.font.SysFont(['segoescript', 'ocraextended', 'agencyfbполужирный', 'agencyfb'][self.i], 50)
+#         t = f'{mins}:{secs}'
+#         text = font.render(t, True, (255, 0, 0))
+#         textRect = text.get_rect()
+#         textRect.center = (self.x, self.y)
+#         screen.blit(text, textRect)
 
 
 
@@ -396,6 +459,8 @@ if __name__ == '__main__':
     Border(0, -1000, 0, height, 0)
     Border(width, -1000, width, height, 0)
     Platform(100, height // 2)
+    Platform(400, height // 2 - 250)
+    Platform(800, height // 2 + 100)
     gifFrameList = loadGIF("polyana.gif")
     currentFrame = 0
 
@@ -423,8 +488,14 @@ if __name__ == '__main__':
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0
     kol_mobs = 0
-    game_clock = Game_clock()
+    d_kol_mobs = 0
+    game_clock = Game_clock(width - 100, 40)
+    kills = Kills(20, 10)
+    kills.update(screen, 0)
     while running:
+
+        mag.boom()
+
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         # if pygame.sprite.spritecollideany(gold, mobs):
         #     running = False
@@ -434,10 +505,12 @@ if __name__ == '__main__':
             # mag
             if event.type == pygame.KEYDOWN and (event.key == 97):
                 mag.move(-1, 0)
+                game_clock.a()
             if event.type == pygame.KEYUP and (event.key == 97):
                 mag.move(1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 100):
                 mag.move(1, 0)
+                game_clock.d()
             if event.type == pygame.KEYUP and (event.key == 100):
                 mag.move(-1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
@@ -461,6 +534,9 @@ if __name__ == '__main__':
             hit.death()
         for hit in hits2:
             hit.death()
+            d_kol_mobs += 1
+            if d_kol_mobs % 5 == 0:
+                MOBS_PER_SECOND *= 1.1
 
         screen.fill((0, 0, 0))
 
@@ -475,7 +551,7 @@ if __name__ == '__main__':
         rect = gifFrameList[currentFrame].get_rect(center=(width // 2, height // 2))
         screen.blit(gifFrameList[currentFrame], rect)
 
-
+        kills.update(screen, d_kol_mobs)
         game_clock.update(screen, seconds)
         clock.tick(fps)
         bgfps += fps
