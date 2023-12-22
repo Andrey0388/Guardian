@@ -379,7 +379,7 @@ class Game_clock():
         secs = str(int(seconds % 60 // 1))
         if len(secs) < 2:
             secs = "0" + secs
-        font = pygame.font.SysFont(['segoescript', 'ocraextended', 'agencyfbполужирный', 'agencyfb'][self.i], 50)
+        font = pygame.font.SysFont('agencyfb', 50)
         t = f'{mins}:{secs}'
         text = font.render(t, True, (255, 0, 0))
         textRect = text.get_rect()
@@ -401,54 +401,12 @@ class Kills():
         self.y = y
 
     def update(self, screen, kills):
-        font = pygame.font.SysFont('segoescript', 50)
+        font = pygame.font.SysFont('agencyfb', 50)
         t = "Kills: " + str(kills)
         text = font.render(t, True, (255, 0, 0))
         textRect = text.get_rect()
         textRect.topleft = (self.x, self.y)
         screen.blit(text, textRect)
-
-
-# class Game_clock():
-#     def __init__(self, x, y):
-#         self.x = x
-#         self.y = y
-#         self.i = 0
-#
-#     def update(self, screen, seconds):
-#         mins = str(int(seconds // 60))
-#         if len(mins) < 2:
-#             mins = "0" + mins
-#         secs = str(int(seconds % 60 // 1))
-#         if len(secs) < 2:
-#             secs = "0" + secs
-#         font = pygame.font.SysFont(['segoescript', 'ocraextended', 'agencyfbполужирный', 'agencyfb'][self.i], 50)
-#         t = f'{mins}:{secs}'
-#         text = font.render(t, True, (255, 0, 0))
-#         textRect = text.get_rect()
-#         textRect.center = (self.x, self.y)
-#         screen.blit(text, textRect)
-#
-# class Game_clock():
-#     def __init__(self, x, y):
-#         self.x = x
-#         self.y = y
-#         self.i = 0
-#
-#     def update(self, screen, seconds):
-#         mins = str(int(seconds // 60))
-#         if len(mins) < 2:
-#             mins = "0" + mins
-#         secs = str(int(seconds % 60 // 1))
-#         if len(secs) < 2:
-#             secs = "0" + secs
-#         font = pygame.font.SysFont(['segoescript', 'ocraextended', 'agencyfbполужирный', 'agencyfb'][self.i], 50)
-#         t = f'{mins}:{secs}'
-#         text = font.render(t, True, (255, 0, 0))
-#         textRect = text.get_rect()
-#         textRect.center = (self.x, self.y)
-#         screen.blit(text, textRect)
-
 
 
 if __name__ == '__main__':
@@ -487,7 +445,7 @@ if __name__ == '__main__':
     kol_bombs = 0
     kol_mobs = 0
     d_kol_mobs = 0
-    game_clock = Game_clock(width - 100, 40)
+    game_clock = Game_clock(width - 70, 40)
     kills = Kills(20, 10)
     kills.update(screen, 0)
     while running:
@@ -510,9 +468,7 @@ if __name__ == '__main__':
                 mag.move(-1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
-            if event.type == pygame.KEYUP and (event.key == 13):
-                mag.boom()
-            if event.type == pygame.KEYUP and (event.key == 1073742052):
+            if event.type == pygame.KEYDOWN and (event.key == 13):
                 mag.boom()
 
             if event.type == pygame.MOUSEMOTION:
