@@ -265,7 +265,8 @@ class Mob(pygame.sprite.Sprite):
         if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
                 or (pygame.sprite.spritecollideany(self, platforms) and self.move_y > 0):
             if pygame.sprite.spritecollideany(self, horizontal_borders):
-                self.rx = 1
+                if (gold.rect.x - self.rect.x):
+                    self.rx = (gold.rect.x - self.rect.x) // abs(gold.rect.x - self.rect.x)
             else:
                 if not self.platform:
                     self.rx = random.randint(0, 1) * 2 - 1
@@ -280,12 +281,9 @@ class Mob(pygame.sprite.Sprite):
         else:
             self.move_y += 1
             self.platform = False
-        while pygame.sprite.spritecollideany(self, vertical_borders) and abs(self.move_x) > 0:
+        while pygame.sprite.spritecollideany(self, vertical_borders) and self.move_x != 0:
             self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
-        if abs((width // 2) - self.rect.x) != 0:
-            self.move_x = (((width // 2) - self.rect.x) // abs((width // 2) - self.rect.x)) * FAST_MOB * self.rx
-        else:
-            self.move_x = self.rx
+        self.move_x = self.rx * FAST_MOB
 
     def death(self):
         mobs.remove(self)
@@ -460,7 +458,7 @@ if __name__ == '__main__':
     Border(width, -1000, width, height, 0)
     Platform(100, height // 2)
     Platform(400, height // 2 - 250)
-    Platform(800, height // 2 + 100)
+    Platform(750, height // 2 + 100)
     gifFrameList = loadGIF("polyana.gif")
     currentFrame = 0
 
@@ -493,9 +491,6 @@ if __name__ == '__main__':
     kills = Kills(20, 10)
     kills.update(screen, 0)
     while running:
-
-        mag.boom()
-
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         # if pygame.sprite.spritecollideany(gold, mobs):
         #     running = False
