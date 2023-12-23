@@ -23,7 +23,8 @@ MOBS_PER_SECOND = 0.5
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
 RESPAWNS = [(0, height - 200), (width - 50, height - 200), (100, 200), (width // 2, 5)]
-POISONS = [(5, "JUMP")]
+POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
+FLAG = False
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
@@ -32,6 +33,7 @@ magg = pygame.sprite.Group()
 mag_group = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 mobs = pygame.sprite.Group()
+text_effects = []
 
 fps = 60
 
@@ -47,7 +49,9 @@ def start_screen():
                   "Ваша задача не подпустить врагов в вашему золоту,",
                   "enter - стрелять,",
                   "space - прыжок,",
-                  "a, d - движение"]
+                  "a, d - движение"
+                  ""
+                  "ДЛЯ ПРОДОЛЖЕНИЯ НАЖМИТЕ enter"]
 
     fon = pygame.transform.scale(load_image('fon.jpg'), (width, height))
     screen.blit(fon, (0, 0))
@@ -66,8 +70,7 @@ def start_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.KEYDOWN and (event.key == 13):
                 return  # начинаем игру
         pygame.display.flip()
         clock.tick(fps)
@@ -196,7 +199,6 @@ class Mag(pygame.sprite.Sprite):
         while pygame.sprite.spritecollideany(self, vertical_borders):
             self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
             floor.rect = floor.rect.move(-self.move_x // abs(self.move_x), 0)
-        print(self.move_y)
 
     def move(self, x, y):
         self.move_x += x * FAST
@@ -279,7 +281,7 @@ class Mob(pygame.sprite.Sprite):
     image = load_image("rober.png")
 
     def __init__(self):
-        super().__init__(all_sprites)
+        super().__init__(all_sprites, mobs)
         self.image = Mob.image
         self.rect = self.image.get_rect()
         pos = RESPAWNS[random.randint(0, len(RESPAWNS) - 1)]
@@ -290,7 +292,6 @@ class Mob(pygame.sprite.Sprite):
         self.platform = False
         self.move_x = 0
         self.move_y = 1
-        self.add(mobs)
         self.v = True
         self.rx = random.randint(0, 1) * 2 - 1
 
@@ -350,15 +351,55 @@ class Posion(pygame.sprite.Sprite):
 
     def update(self):
         if pygame.sprite.spritecollideany(self, mag_group):
-            x = random.randint(0, len(POISONS) - 1)
-            if POISONS[x][1] == "JUMP":
+            self.x = random.randint(0, len(POISONS) - 1)
+            if POISONS[self.x][1] == "JUMP":
                 global JUMP
-                JUMP += POISONS[x][0]
+                JUMP += POISONS[self.x][0]
+                self.death()
+            if POISONS[self.x][1] == "BOOMS":
+                global FLAG
+                FLAG = True
                 self.death()
 
     def death(self):
         all_sprites.remove(self)
         create_particles((self.rect.x, self.rect.y))
+        Effect(POISONS[self.x][0], POISONS[self.x][1])
+        Effect_text(POISONS[self.x][1])
+
+
+class Effect(pygame.sprite.Sprite):
+    image = load_image("effect.png")
+
+    def __init__(self, effect, name):
+        super().__init__(all_sprites)
+        self.image = pygame.transform.scale(Effect.image, (width, height))
+        pygame.Surface.set_alpha(self.image, 100)
+        self.rect = self.image.get_rect()
+        self.rect.x = 0
+        self.rect.y = 0
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.fps = 0
+        self.effect = effect
+        self.name = name
+        self.alpha = 120
+
+    def update(self):
+        if self.fps > 500:
+            if self.name == "JUMP":
+                global JUMP
+                JUMP -= self.effect
+                all_sprites.remove(self)
+                text_effects.clear()
+            if self.name == "BOOMS":
+                global FLAG
+                FLAG = False
+                all_sprites.remove(self)
+                text_effects.clear()
+        self.alpha -= 0.2
+        pygame.Surface.set_alpha(self.image, self.alpha)
+        self.fps += 1
 
 
 class Particle(pygame.sprite.Sprite):
@@ -435,6 +476,22 @@ def stop_window():
         pygame.display.flip()
 
 
+class Effect_text():
+    def __init__(self, text):
+        font = pygame.font.SysFont('agencyfb', 50)
+        self.text = font.render(text, True, (255, 0, 0))
+        self.textRect = self.text.get_rect()
+        self.textRect.topleft = (width // 2 + 300, 10)
+        self.alpha = 255
+        pygame.Surface.set_alpha(self.text, 0)
+        text_effects.append(self)
+
+    def update(self, screen):
+        self.alpha -= 0.425
+        pygame.Surface.set_alpha(self.text, self.alpha)
+        screen.blit(self.text, self.textRect)
+
+
 class Game_clock():
     def __init__(self, x, y):
         self.x = x
@@ -454,14 +511,6 @@ class Game_clock():
         textRect = text.get_rect()
         textRect.center = (self.x, self.y)
         screen.blit(text, textRect)
-
-    def a(self):
-        self.i -= 1
-        self.i %= 4
-
-    def d(self):
-        self.i += 1
-        self.i %= 4
 
 
 class Kills():
@@ -506,12 +555,6 @@ if __name__ == '__main__':
     floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0)
     running = True
     bgfps = 0
-    flag = False
-    image = load_image("arrow.png")
-    cursor = pygame.sprite.Sprite()
-    cursor.image = image
-    cursor.rect = image.get_rect()
-    pygame.mouse.set_visible(False)
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0
@@ -520,9 +563,7 @@ if __name__ == '__main__':
     game_clock = Game_clock(width - 70, 40)
     kills = Kills(20, 10)
     kills.update(screen, 0)
-
-    Posion()
-
+    poisons = 0
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         # if pygame.sprite.spritecollideany(gold, mobs):
@@ -533,26 +574,16 @@ if __name__ == '__main__':
             # mag
             if event.type == pygame.KEYDOWN and (event.key == 97):
                 mag.move(-1, 0)
-                game_clock.a()
             if event.type == pygame.KEYUP and (event.key == 97):
                 mag.move(1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 100):
                 mag.move(1, 0)
-                game_clock.d()
             if event.type == pygame.KEYUP and (event.key == 100):
                 mag.move(-1, 0)
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
             if event.type == pygame.KEYDOWN and (event.key == 13):
                 mag.boom()
-
-            if event.type == pygame.MOUSEMOTION:
-                if not flag:
-                    flag = True
-                    all_sprites.add(cursor)
-                cursor.rect.topleft = event.pos
-                if event.pos[0] == 0 or event.pos[1] == 0:
-                    cursor.rect.topleft = (width, height)
 
         hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
         hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
@@ -565,6 +596,11 @@ if __name__ == '__main__':
                 MOBS_PER_SECOND *= 1.1
 
         screen.fill((0, 0, 0))
+        if FLAG and (seconds // 0.1 / 10) > kol_bombs:
+            mag.boom()
+            kol_bombs += 0.1
+        else:
+            kol_bombs = seconds // 0.1 / 10
 
         if seconds > kol_mobs:
             Mob()
@@ -573,6 +609,10 @@ if __name__ == '__main__':
         if bgfps % 300 == 0:
             currentFrame = (currentFrame + 1) % len(gifFrameList)
             bgfps = 0
+
+        if seconds > 1 and int(seconds) // 20 > poisons:
+            Posion()
+            poisons += 1
 
         rect = gifFrameList[currentFrame].get_rect(center=(width // 2, height // 2))
         screen.blit(gifFrameList[currentFrame], rect)
@@ -583,6 +623,10 @@ if __name__ == '__main__':
         bgfps += fps
         all_sprites.draw(screen)
         all_sprites.update()
+
+        for i in text_effects:
+            i.update(screen)
+
         pygame.display.flip()
 
     pygame.quit()
