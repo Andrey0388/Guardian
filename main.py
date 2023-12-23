@@ -3,6 +3,7 @@ import os
 import sys
 from PIL import Image, ImageSequence
 import random
+from characters import Mag, Floor, Fireball
 
 pygame.init()
 pygame.display.set_caption('Guardian')
@@ -141,107 +142,6 @@ class AnimatedSprite(pygame.sprite.Sprite):
                 else:
                     all_sprites.remove(self)
         self.fps += 1
-
-
-class Floor(pygame.sprite.Sprite):
-    def __init__(self, x1, y1, x2, y2, f):
-        super().__init__(all_sprites)
-        magg.add(self)
-        self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
-        self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
-        self.image.fill((0, 0, 0, f))
-
-
-class Mag(pygame.sprite.Sprite):
-    image = load_image("mag.png")
-
-    def __init__(self, pos):
-        super().__init__(all_sprites, mag_group)
-        self.image = Mag.image
-        self.rect = self.image.get_rect()
-        self.rect.x = pos[0]
-        self.rect.y = pos[1]
-        # вычисляем маску для эффективного сравнения
-        self.mask = pygame.mask.from_surface(self.image)
-        self.move_x = 0
-        self.move_y = 0
-        self.v = True
-        self.jump = 0
-        self.kol_jump = 0
-        all_sprites.add(self)
-
-    def update(self):
-        if self.move_x > 0 and self.v:
-            self.image = pygame.transform.flip(self.image, True, False)
-            self.mask = pygame.mask.from_surface(self.image)
-            floor.rect = floor.rect.move(5, 0)
-            self.v = False
-        if self.move_x < 0 and not self.v:
-            self.image = pygame.transform.flip(self.image, True, False)
-            self.mask = pygame.mask.from_surface(self.image)
-            floor.rect = floor.rect.move(-5, 0)
-            self.v = True
-
-        self.rect = self.rect.move(self.move_x, self.move_y)
-        floor.rect = floor.rect.move(self.move_x, self.move_y)
-
-        if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                or (pygame.sprite.spritecollideany(floor, platforms) and self.move_y > 0):
-            while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                    or (pygame.sprite.spritecollideany(floor, platforms)):
-                self.rect = self.rect.move(0, -1)
-                floor.rect = floor.rect.move(0, -1)
-            self.move_y = 0
-            self.kol_jump = 0
-        else:
-            if self.move_y < 30:
-                self.move_y += 1
-        while pygame.sprite.spritecollideany(self, vertical_borders):
-            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
-            floor.rect = floor.rect.move(-self.move_x // abs(self.move_x), 0)
-
-    def move(self, x, y):
-        self.move_x += x * FAST
-        self.move_y += y * FAST
-
-    def pos(self):
-        return (self.rect.x, self.rect.y)
-
-    def boom(self):
-        shots.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * FAST_BOOM))
-
-    def jumper(self):
-        self.kol_jump += 1
-        self.move_y = -JUMP
-
-    def return_kol_jump(self):
-        return self.kol_jump
-
-
-class Fireball(pygame.sprite.Sprite):
-    image = load_image("fireball.png")
-
-    def __init__(self, pos1, move_x):
-        super().__init__(all_sprites)
-        self.image = Fireball.image
-        self.rect = self.image.get_rect()
-        self.rect.x = pos1[0] + 30
-        self.rect.y = pos1[1] + 30
-        self.move_x = move_x
-        self.move_y = 0
-        # вычисляем маску для эффективного сравнения
-        self.mask = pygame.mask.from_surface(self.image)
-
-    def update(self):
-        self.rect = self.rect.move(self.move_x, self.move_y)
-        if self.rect.x < 0 or self.rect.x > width - 60:
-            shots.remove(self)
-            all_sprites.remove(self)
-            all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
-
-    def death(self):
-        shots.remove(self)
-        all_sprites.remove(self)
 
 
 class Border(pygame.sprite.Sprite):
@@ -442,43 +342,25 @@ def create_particles(position):
         Particle(position, random.choice(numbers), random.choice(numbers))
 
 
-def stop_window():
-    running = True
-    clock = pygame.time.Clock()
-    start_ticks = pygame.time.get_ticks()  # starter tick
-    kol_bombs = 0
-    kol_mobs = 0
-    while running:
-        seconds = (pygame.time.get_ticks() - start_ticks) / 1000
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.MOUSEMOTION:
-                if not flag:
-                    flag = True
-                    all_sprites.add(cursor)
-                cursor.rect.topleft = event.pos
-                if event.pos[0] == 0 or event.pos[1] == 0:
-                    cursor.rect.topleft = (width, height)
-
-        screen.fill((0, 0, 0))
-
-        if bgfps % 300 == 0:
-            currentFrame = (currentFrame + 1) % len(gifFrameList)
-            bgfps = 0
-
-        rect = gifFrameList[currentFrame].get_rect(center=(width // 2, height // 2))
-        screen.blit(gifFrameList[currentFrame], rect)
-
-        clock.tick(fps)
-        bgfps += fps
-        all_sprites.draw(screen)
-        pygame.display.flip()
-
-
 class Effect_text():
     def __init__(self, text):
         font = pygame.font.SysFont('agencyfb', 50)
+        self.text = font.render(text, True, (255, 0, 0))
+        self.textRect = self.text.get_rect()
+        self.textRect.topleft = (width // 2 + 300, 10)
+        self.alpha = 255
+        pygame.Surface.set_alpha(self.text, 0)
+        text_effects.append(self)
+
+    def update(self, screen):
+        self.alpha -= 0.425
+        pygame.Surface.set_alpha(self.text, self.alpha)
+        screen.blit(self.text, self.textRect)
+
+
+class Wave_text():
+    def __init__(self, text):
+        font = pygame.font.SysFont('agencyfb', 100)
         self.text = font.render(text, True, (255, 0, 0))
         self.textRect = self.text.get_rect()
         self.textRect.topleft = (width // 2 + 300, 10)
@@ -528,7 +410,6 @@ class Kills():
 
 
 if __name__ == '__main__':
-
     clock = pygame.time.Clock()
     start_screen()
 
@@ -552,7 +433,6 @@ if __name__ == '__main__':
 
     # main character
     mag = Mag((X_MAG_POS, Y_MAG_POS))
-    floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0)
     running = True
     bgfps = 0
     clock = pygame.time.Clock()
