@@ -10,7 +10,6 @@ size = width, height = 1200, 800
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
 screen_rect = (0, 0, width, height)
-global FAST
 FAST = 7
 FAST_BOOM = 14
 FAST_MOB = 2
@@ -34,6 +33,7 @@ mag_group = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 mobs = pygame.sprite.Group()
 text_effects = []
+text_waves = []
 
 fps = 60
 
@@ -460,17 +460,24 @@ class Effect_text():
 
 
 class Wave_text():
-    def __init__(self, text):
+    def __init__(self, number_wave):
+        text = f'WAVE {number_wave}'
         font = pygame.font.SysFont('agencyfb', 100)
         self.text = font.render(text, True, (255, 0, 0))
         self.textRect = self.text.get_rect()
-        self.textRect.topleft = (width // 2 + 300, 10)
-        self.alpha = 255
+        self.textRect.center = (width // 2, height // 2)
+        self.alpha = 0
         pygame.Surface.set_alpha(self.text, 0)
-        text_effects.append(self)
+        text_waves.append(self)
+        self.alpha_plus = 2
 
     def update(self, screen):
-        self.alpha -= 0.425
+        self.alpha += self.alpha_plus
+        if self.alpha > 255:
+            self.alpha -= self.alpha_plus
+            self.alpha_plus *= -1
+        if self.alpha < 0:
+            text_waves.remove(self)
         pygame.Surface.set_alpha(self.text, self.alpha)
         screen.blit(self.text, self.textRect)
 
@@ -545,6 +552,9 @@ if __name__ == '__main__':
     kills = Kills(20, 10)
     kills.update(screen, 0)
     poisons = 0
+    number_wave = 1
+    kol_mobs_wave = 0
+    Wave_text(1)
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         # if pygame.sprite.spritecollideany(gold, mobs):
@@ -573,8 +583,11 @@ if __name__ == '__main__':
         for hit in hits2:
             hit.death()
             d_kol_mobs += 1
-            if d_kol_mobs % 5 == 0:
-                MOBS_PER_SECOND *= 1.1
+            if kol_mobs_wave >= number_wave * 10 and not mobs:
+                MOBS_PER_SECOND += 1
+                number_wave += 1
+                Wave_text(number_wave)
+                kol_mobs_wave = 0
 
         screen.fill((0, 0, 0))
         if FLAG and (seconds // 0.1 / 10) > kol_bombs:
@@ -584,7 +597,9 @@ if __name__ == '__main__':
             kol_bombs = seconds // 0.1 / 10
 
         if seconds > kol_mobs:
-            Mob()
+            if kol_mobs_wave < number_wave * 10 and not text_waves:
+                Mob()
+                kol_mobs_wave += 1
             kol_mobs += 1 / MOBS_PER_SECOND
 
         if bgfps % 300 == 0:
@@ -606,6 +621,8 @@ if __name__ == '__main__':
         all_sprites.update()
 
         for i in text_effects:
+            i.update(screen)
+        for i in text_waves:
             i.update(screen)
 
         pygame.display.flip()
