@@ -10,6 +10,7 @@ size = width, height = 1200, 800
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
 screen_rect = (0, 0, width, height)
+global FAST
 FAST = 7
 FAST_BOOM = 14
 FAST_MOB = 2
@@ -22,11 +23,13 @@ MOBS_PER_SECOND = 0.5
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
 RESPAWNS = [(0, height - 200), (width - 50, height - 200), (100, 200), (width // 2, 5)]
+POISONS = [(5, "JUMP")]
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
 platforms = pygame.sprite.Group()
 magg = pygame.sprite.Group()
+mag_group = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 mobs = pygame.sprite.Group()
 
@@ -150,7 +153,7 @@ class Mag(pygame.sprite.Sprite):
     image = load_image("mag.png")
 
     def __init__(self, pos):
-        super().__init__(all_sprites)
+        super().__init__(all_sprites, mag_group)
         self.image = Mag.image
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
@@ -331,6 +334,31 @@ class Mob(pygame.sprite.Sprite):
         all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
 
 
+class Posion(pygame.sprite.Sprite):
+    image = load_image("posion.png")
+
+    def __init__(self):
+        super().__init__(all_sprites)
+        self.image = Posion.image
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randint(100, width - 100)
+        self.rect.y = random.randint(100, height - 100)
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def update(self):
+        if pygame.sprite.spritecollideany(self, mag_group):
+            x = random.randint(0, len(POISONS) - 1)
+            if POISONS[x][1] == "JUMP":
+                global JUMP
+                JUMP += POISONS[x][0]
+                self.death()
+
+    def death(self):
+        all_sprites.remove(self)
+        create_particles((self.rect.x, self.rect.y))
+
+
 class Particle(pygame.sprite.Sprite):
     # сгенерируем частицы разного размера
     fire = [load_image("star.png")]
@@ -490,6 +518,8 @@ if __name__ == '__main__':
     game_clock = Game_clock(width - 70, 40)
     kills = Kills(20, 10)
     kills.update(screen, 0)
+
+    Posion()
 
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
