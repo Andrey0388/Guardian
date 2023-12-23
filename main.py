@@ -3,7 +3,6 @@ import os
 import sys
 from PIL import Image, ImageSequence
 import random
-from characters import Mag, Floor, Fireball
 
 pygame.init()
 pygame.display.set_caption('Guardian')
@@ -161,6 +160,108 @@ class Border(pygame.sprite.Sprite):
             self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
             self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
             self.image.fill((0, 0, 0, f))
+
+
+class Fireball(pygame.sprite.Sprite):
+    image = load_image("fireball.png")
+
+    def __init__(self, pos1, move_x):
+        super().__init__(all_sprites)
+        self.image = Fireball.image
+        self.rect = self.image.get_rect()
+        self.rect.x = pos1[0] + 30
+        self.rect.y = pos1[1] + 30
+        self.move_x = move_x
+        self.move_y = 0
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def update(self):
+        self.rect = self.rect.move(self.move_x, self.move_y)
+        if self.rect.x < 0 or self.rect.x > width - 60:
+            shots.remove(self)
+            all_sprites.remove(self)
+            all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
+
+    def death(self):
+        shots.remove(self)
+        all_sprites.remove(self)
+
+
+class Floor(pygame.sprite.Sprite):
+    def __init__(self, x1, y1, x2, y2, f):
+        super().__init__(all_sprites)
+        magg.add(self)
+        self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
+        self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
+        self.image.fill((0, 0, 0, f))
+
+
+class Mag(pygame.sprite.Sprite):
+    image = load_image("mag.png")
+
+    def __init__(self, pos):
+        super().__init__(all_sprites, mag_group)
+        self.image = Mag.image
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.move_x = 0
+        self.move_y = 0
+        self.v = True
+        self.jump = 0
+        self.kol_jump = 0
+        all_sprites.add(self)
+        self.floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0)
+
+    def update(self):
+        if self.move_x > 0 and self.v:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
+            self.floor.rect = self.floor.rect.move(5, 0)
+            self.v = False
+        if self.move_x < 0 and not self.v:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
+            self.floor.rect = self.floor.rect.move(-5, 0)
+            self.v = True
+
+        self.rect = self.rect.move(self.move_x, self.move_y)
+        self.floor.rect = self.floor.rect.move(self.move_x, self.move_y)
+
+        if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                or (pygame.sprite.spritecollideany(self.floor, platforms) and self.move_y > 0):
+            while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                    or (pygame.sprite.spritecollideany(self.floor, platforms)):
+                self.rect = self.rect.move(0, -1)
+                self.floor.rect = self.floor.rect.move(0, -1)
+            self.move_y = 0
+            self.kol_jump = 0
+        else:
+            if self.move_y < 30:
+                self.move_y += 1
+        while pygame.sprite.spritecollideany(self, vertical_borders):
+            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
+            self.floor.rect = self.floor.rect.move(-self.move_x // abs(self.move_x), 0)
+
+    def move(self, x, y):
+        self.move_x += x * FAST
+        self.move_y += y * FAST
+
+    def pos(self):
+        return (self.rect.x, self.rect.y)
+
+    def boom(self):
+        shots.add(Fireball(self.pos(), -(int(self.v) * 2 - 1) * FAST_BOOM))
+
+    def jumper(self):
+        self.kol_jump += 1
+        self.move_y = -JUMP
+
+    def return_kol_jump(self):
+        return self.kol_jump
 
 
 class Platform(pygame.sprite.Sprite):
