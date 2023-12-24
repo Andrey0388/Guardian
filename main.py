@@ -32,6 +32,8 @@ magg = pygame.sprite.Group()
 mag_group = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 mobs = pygame.sprite.Group()
+mobs = pygame.sprite.Group()
+golds = pygame.sprite.Group()
 text_effects = []
 text_waves = []
 
@@ -296,40 +298,53 @@ class Mob(pygame.sprite.Sprite):
         self.v = True
         self.rx = random.randint(0, 1) * 2 - 1
 
+        self.pobeg = False
+
     def update(self):
-        if self.move_x > 0 and self.v:
-            self.image = pygame.transform.flip(self.image, True, False)
-            self.mask = pygame.mask.from_surface(self.image)
-            self.v = False
-        if self.move_x < 0 and not self.v:
-            self.image = pygame.transform.flip(self.image, True, False)
-            self.mask = pygame.mask.from_surface(self.image)
-            self.v = True
+        if not self.pobeg:
+            if self.move_x > 0 and self.v:
+                self.image = pygame.transform.flip(self.image, True, False)
+                self.mask = pygame.mask.from_surface(self.image)
+                self.v = False
+            if self.move_x < 0 and not self.v:
+                self.image = pygame.transform.flip(self.image, True, False)
+                self.mask = pygame.mask.from_surface(self.image)
+                self.v = True
 
-        self.rect = self.rect.move(self.move_x, self.move_y)
+            self.rect = self.rect.move(self.move_x, self.move_y)
 
-        if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                or (pygame.sprite.spritecollideany(self, platforms) and self.move_y > 0):
-            if pygame.sprite.spritecollideany(self, horizontal_borders):
-                if (gold.rect.x - self.rect.x):
-                    self.rx = (gold.rect.x - self.rect.x) // abs(gold.rect.x - self.rect.x)
+            if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                    or (pygame.sprite.spritecollideany(self, platforms) and self.move_y > 0):
+                if pygame.sprite.spritecollideany(self, horizontal_borders):
+                    if (gold.rect.x - self.rect.x):
+                        self.rx = (gold.rect.x - self.rect.x) // abs(gold.rect.x - self.rect.x)
+                else:
+                    if not self.platform:
+                        self.rx = random.randint(0, 1) * 2 - 1
+                        self.platform = True
+
+                while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                        or (pygame.sprite.spritecollideany(self, platforms)):
+                    self.rect = self.rect.move(0, -1)
+
+                self.move_y = 1
+                self.kol_jump = 0
             else:
-                if not self.platform:
-                    self.rx = random.randint(0, 1) * 2 - 1
-                    self.platform = True
-
-            while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
-                    or (pygame.sprite.spritecollideany(self, platforms)):
-                self.rect = self.rect.move(0, -1)
-
-            self.move_y = 1
-            self.kol_jump = 0
+                self.move_y += 1
+                self.platform = False
+            while pygame.sprite.spritecollideany(self, vertical_borders) and self.move_x != 0:
+                self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
+            self.move_x = self.rx * FAST_MOB
         else:
-            self.move_y += 1
-            self.platform = False
-        while pygame.sprite.spritecollideany(self, vertical_borders) and self.move_x != 0:
-            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
-        self.move_x = self.rx * FAST_MOB
+            self.rect = self.rect.move(5 * self.stor, 0)
+            if self.rect.x < -50 or self.rect.x > width + 50:
+                all_sprites.remove(self)
+
+
+    def pobegus(self):
+        mobs.remove(self)
+        if self.rect.x != mag.rect.x:
+            self.stor = (self.rect.x - mag.rect.x) // abs(self.rect.x - mag.rect.x)
 
     def death(self):
         mobs.remove(self)
@@ -537,6 +552,7 @@ if __name__ == '__main__':
     gold.image = gold_image
     gold.rect = gold_image.get_rect()
     all_sprites.add(gold)
+    golds.add(gold)
     gold.rect.topleft = ((width - gold_image.get_width()) // 2, (height - gold_image.get_height()) // 2 + 330)
 
     # main character
@@ -557,8 +573,6 @@ if __name__ == '__main__':
     Wave_text(1)
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
-        # if pygame.sprite.spritecollideany(gold, mobs):
-        #     running = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -575,6 +589,10 @@ if __name__ == '__main__':
                 mag.jumper()
             if event.type == pygame.KEYDOWN and (event.key == 13):
                 mag.boom()
+
+        mobes = pygame.sprite.groupcollide(mobs, golds, False, False)
+        for j in mobes:
+            j.pobegus()
 
         hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
         hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
