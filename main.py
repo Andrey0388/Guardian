@@ -3,6 +3,7 @@ import os
 import sys
 from PIL import Image, ImageSequence
 import random
+from math import sqrt
 
 pygame.init()
 pygame.display.set_caption('Guardian')
@@ -18,11 +19,12 @@ FLOOR_GRAVITY = 8
 GRAVITY = 0.3
 PLATFORM_GRAVITY = 2
 SHOTS_PER_SECOND = 2  # 65 - 70 максимум при скорости FAST_BOOM 14
-MOBS_PER_SECOND = 0.5
+MOBS_PER_SECOND = 1
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
 RESPAWNS = [(0, height - 200), (width - 50, height - 200), (100, 200), (width // 2, 5)]
 POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
+bgfps = 0
 FLAG = False
 
 horizontal_borders = pygame.sprite.Group()
@@ -383,8 +385,10 @@ class Posion(pygame.sprite.Sprite):
         self.rect.y = random.randint(100, height - 100)
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
+        self.cnt = 0
 
     def update(self):
+        self.cnt += 1
         if pygame.sprite.spritecollideany(self, mag_group):
             self.x = random.randint(0, len(POISONS) - 1)
             if POISONS[self.x][1] == "JUMP":
@@ -395,12 +399,15 @@ class Posion(pygame.sprite.Sprite):
                 global FLAG
                 FLAG = True
                 self.death()
+        if self.cnt > 200:
+            self.death()
 
     def death(self):
         all_sprites.remove(self)
-        create_particles((self.rect.x, self.rect.y))
-        Effect(POISONS[self.x][0], POISONS[self.x][1])
-        Effect_text(POISONS[self.x][1])
+        if self.cnt <= 200:
+            create_particles((self.rect.x, self.rect.y))
+            Effect(POISONS[self.x][0], POISONS[self.x][1])
+            Effect_text(POISONS[self.x][1])
 
 
 class Effect(pygame.sprite.Sprite):
@@ -582,16 +589,92 @@ def create_coins(columns, row):
 
 
 def show_go_screen():
+    global bgfps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, number_wave, kol_mobs, poisons, MOBS_PER_SECOND
+    f = True
     background = pygame.transform.scale(load_image('gm.png'), (width, height))
-    background_rect = background.get_rect()
-    screen.blit(background, background_rect)
-    pygame.display.flip()
+    widthgm = -width - 5
     waiting = True
     while waiting:
-        clock.tick(fps)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
+                waiting = False
+                terminate()
+            if event.type == pygame.KEYDOWN and (event.key == 97):
+                mag.move(-1, 0)
+            if event.type == pygame.KEYUP and (event.key == 97):
+                mag.move(1, 0)
+            if event.type == pygame.KEYDOWN and (event.key == 100):
+                mag.move(1, 0)
+            if event.type == pygame.KEYUP and (event.key == 100):
+                mag.move(-1, 0)
+            if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
+                mag.jumper()
+            if event.type == pygame.KEYDOWN and (event.key == 13):
+                mag.boom()
+
+        if not waiting:
+            break
+        # main
+        if f:
+            mobes = pygame.sprite.groupcollide(mobs, golds, False, False)
+            for j in mobes:
+                j.pobegus()
+            hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
+            hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
+            for hit in hits1:
+                hit.death()
+            for hit in hits2:
+                hit.death()
+                d_kol_mobs += 1
+
+            if kol_mobs_wave >= number_wave * 10 and not mobs:
+                MOBS_PER_SECOND = sqrt(number_wave)
+                number_wave += 1
+                Wave_text(number_wave)
+                kol_mobs_wave = 0
+
+            screen.fill((0, 0, 0))
+            if FLAG and (seconds // 0.1 / 10) > kol_bombs:
+                mag.boom()
+                kol_bombs += 0.1
+            else:
+                kol_bombs = seconds // 0.1 / 10
+
+            if seconds > kol_mobs:
+                if kol_mobs_wave < number_wave * 10 and not text_waves:
+                    Mob()
+                    kol_mobs_wave += 1
+                kol_mobs += 1 / MOBS_PER_SECOND
+
+            if bgfps % 300 == 0:
+                currentFrame = (currentFrame + 1) % len(gifFrameList)
+                bgfps = 0
+
+            if seconds > 1 and int(seconds) // 20 > poisons:
+                Posion()
+                poisons += 1
+
+            rect = gifFrameList[currentFrame].get_rect(center=(width // 2, height // 2))
+            screen.blit(gifFrameList[currentFrame], rect)
+
+            kills.update(screen, d_kol_mobs)
+            clock.tick(fps)
+            bgfps += fps
+            all_sprites.draw(screen)
+            all_sprites.update()
+
+            for i in text_effects:
+                i.update(screen)
+            for i in text_waves:
+                i.update(screen)
+
+            widthgm += 5
+            background_rect = background.get_rect()
+            screen.blit(background, (widthgm, 0))
+            if widthgm >= 0:
+                f = False
+
+            pygame.display.flip()
 
 
 if __name__ == '__main__':
@@ -605,7 +688,7 @@ if __name__ == '__main__':
     Platform(100, height // 2)
     Platform(400, height // 2 - 250)
     Platform(750, height // 2 + 100)
-    gifFrameList = loadGIF("polyana.gif")
+    gifFrameList = loadGIF("data/polyana.gif")
     currentFrame = 0
 
     # gold
@@ -623,8 +706,6 @@ if __name__ == '__main__':
     # coins
     create_coins(2, 10)
 
-    running = True
-    bgfps = 0
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0
@@ -636,11 +717,13 @@ if __name__ == '__main__':
     number_wave = 1
     kol_mobs_wave = 0
     Wave_text(1)
+    running = True
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                terminate()
             # mag
             if event.type == pygame.KEYDOWN and (event.key == 97):
                 mag.move(-1, 0)
@@ -661,6 +744,8 @@ if __name__ == '__main__':
             gold_coins[-1].death()
             if not gold_coins:
                 show_go_screen()
+                running = False
+                terminate()
 
         hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
         hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
@@ -671,7 +756,7 @@ if __name__ == '__main__':
             d_kol_mobs += 1
 
         if kol_mobs_wave >= number_wave * 10 and not mobs:
-            MOBS_PER_SECOND += 1
+            MOBS_PER_SECOND = sqrt(number_wave)
             number_wave += 1
             Wave_text(number_wave)
             kol_mobs_wave = 0
