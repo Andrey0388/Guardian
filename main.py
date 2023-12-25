@@ -22,10 +22,11 @@ SHOTS_PER_SECOND = 2  # 65 - 70 максимум при скорости FAST_BO
 MOBS_PER_SECOND = 1
 X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
-RESPAWNS = [(0, height - 200), (width - 50, height - 200), (100, 200), (width // 2, 5)]
+RESPAWNS = [(50, height - 150), (width - 50, height - 150), (100, 200), (width // 2, 5)]
 POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
 bgfps = 0
 FLAG = False
+boss = False
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
@@ -290,6 +291,7 @@ class Mob(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__(all_sprites, mobs)
         self.image = Mob.image
+        self.image = pygame.transform.scale(self.image, (50, 50))
         self.rect = self.image.get_rect()
         pos = RESPAWNS[random.randint(0, len(RESPAWNS) - 1)]
         self.rect.x = pos[0]
@@ -372,6 +374,138 @@ class Mob(pygame.sprite.Sprite):
         all_sprites.remove(self)
         create_particles((self.rect.x, self.rect.y))
         all_sprites.add(AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0))
+
+
+class Boss(pygame.sprite.Sprite):
+    image = load_image("boss.png")
+    image1 = load_image("boss1.png")
+
+
+    def __init__(self, number_wave):
+        super().__init__(all_sprites, mobs)
+        self.image = Boss.image
+        self.image = pygame.transform.scale(self.image, (80, 117))
+        self.rect = self.image.get_rect()
+        pos = RESPAWNS[random.randint(0, len(RESPAWNS) - 1)]
+        self.rect.x = pos[0] - 50
+        self.rect.y = pos[1] - 96
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.platform = False
+        self.move_x = 0
+        self.move_y = 1
+        self.v = True
+        self.rx = random.randint(0, 1) * 2 - 1
+        self.stor = 1
+        self.process_bar = ProgressBar((self.rect.x, self.rect.y - 15, 80, 10))
+        self.per = number_wave
+        self.pobeg = False
+
+    def update(self):
+        if self.move_x > 0 and self.v and not self.pobeg:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
+            self.v = False
+        if self.move_x < 0 and not self.v and not self.pobeg:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
+            self.v = True
+
+        if self.pobeg:
+            self.move_x = 2.5 * self.stor
+        self.rect = self.rect.move(self.move_x, self.move_y)
+        self.process_bar.move(self.move_x, self.move_y)
+
+        if (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                or (pygame.sprite.spritecollideany(self, platforms) and self.move_y > 0):
+            if pygame.sprite.spritecollideany(self, horizontal_borders):
+                if (gold.rect.x - self.rect.x):
+                    self.rx = (gold.rect.x - self.rect.x) // abs(gold.rect.x - self.rect.x)
+            else:
+                if not self.platform:
+                    self.rx = random.randint(0, 1) * 2 - 1
+                    self.platform = True
+
+            while (pygame.sprite.spritecollideany(self, horizontal_borders)) \
+                    or (pygame.sprite.spritecollideany(self, platforms)):
+                self.rect = self.rect.move(0, -1)
+                self.process_bar.move(0, -1)
+
+            self.move_y = 1
+            self.kol_jump = 0
+        else:
+            self.move_y += 1
+            self.platform = False
+
+        while not self.pobeg and pygame.sprite.spritecollideany(self, vertical_borders) and self.move_x != 0:
+            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
+            self.process_bar.move(-self.move_x // abs(self.move_x), 0)
+        if not self.pobeg:
+            self.move_x = self.rx * FAST_MOB // 2
+
+        if self.rect.x < -50 or self.rect.x > width + 50:
+            all_sprites.remove(self)
+
+    def pobegus(self):
+        x = self.rect.x
+        y = self.rect.y
+        self.image = Boss.image1
+        self.image = pygame.transform.scale(self.image, (108, 140))
+        self.rect = self.image.get_rect()
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.x = x - 14
+        self.rect.y = y - 23
+        mobs.remove(self)
+        self.pobeg = True
+        if self.rect.x != mag.rect.x:
+            self.stor = (self.rect.x - mag.rect.x) // abs(self.rect.x - mag.rect.x)
+            if self.stor > 0:
+                self.image = pygame.transform.flip(self.image, True, False)
+                self.mask = pygame.mask.from_surface(self.image)
+        else:
+            self.stor = self.move_x // abs(self.move_x)
+        self.move_x = self.stor * 2.5
+        self.process_bar.move(0, -23)
+
+    def death(self):
+        self.process_bar.update(screen, 100 / self.per)
+        if self.process_bar.width == 0:
+            mobs.remove(self)
+            all_sprites.remove(self)
+            create_particles((self.rect.x, self.rect.y))
+            for i in range(10):
+                all_sprites.add(
+                    AnimatedSprite(load_image("boom.png"), 4, 4, random.randint(self.rect.x - 40, self.rect.x + 40),
+                                   random.randint(self.rect.y - 57, self.rect.y + 57), 0))
+            global boss
+            boss = False
+
+
+class ProgressBar:
+    def __init__(self, rect):
+        self.rect = pygame.Rect(rect)
+        self.complete = False
+        self.percent = 100
+
+    def update(self, screen, per):
+        if not self.complete:
+            self.percent -= per
+        self.width = self.percent * self.rect.width / 100
+        if self.width <= 0:
+            self.width = 0
+            self.complete = True
+        else:
+            self.complete = False
+        pygame.draw.rect(screen, (0, 0, 0),
+                         (self.rect.left, self.rect.top, self.rect.width - self.width, self.rect.height))
+        pygame.draw.rect(screen, (255, 255, 255),
+                         (self.rect.left, self.rect.top, self.rect.width, self.rect.height))
+        pygame.draw.rect(screen, (0, 255, 0), (self.rect.left, self.rect.top, self.width, self.rect.height))
+
+    def move(self, x, y):
+        self.rect.left += x
+        self.rect.top += y
 
 
 class Posion(pygame.sprite.Sprite):
@@ -503,6 +637,8 @@ class Effect_text():
 class Wave_text():
     def __init__(self, number_wave):
         text = f'WAVE {number_wave}'
+        if number_wave % 5 == 0:
+            text += " BOSS"
         font = pygame.font.SysFont('agencyfb', 100)
         self.text = font.render(text, True, (255, 0, 0))
         self.textRect = self.text.get_rect()
@@ -741,6 +877,10 @@ if __name__ == '__main__':
         mobes = pygame.sprite.groupcollide(mobs, golds, False, False)
         for j in mobes:
             j.pobegus()
+            if isinstance(j, Boss):
+                for i in range(4):
+                    if gold_coins:
+                        gold_coins[-1].death()
             gold_coins[-1].death()
             if not gold_coins:
                 show_go_screen()
@@ -770,7 +910,11 @@ if __name__ == '__main__':
 
         if seconds > kol_mobs:
             if kol_mobs_wave < number_wave * 10 and not text_waves:
-                Mob()
+                if number_wave % 5 == 0 and kol_mobs_wave == (number_wave * 10 // 3 * 2):
+                    boss = True
+                    b = Boss(number_wave)
+                else:
+                    Mob()
                 kol_mobs_wave += 1
             kol_mobs += 1 / MOBS_PER_SECOND
 
@@ -790,6 +934,9 @@ if __name__ == '__main__':
         bgfps += fps
         all_sprites.draw(screen)
         all_sprites.update()
+
+        if boss:
+            b.process_bar.update(screen, 0)
 
         for i in text_effects:
             i.update(screen)
