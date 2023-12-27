@@ -27,6 +27,7 @@ POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
 bgfps = 0
 FLAG = False
 boss = False
+running = False
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
@@ -40,6 +41,7 @@ golds = pygame.sprite.Group()
 gold_coins = []
 text_effects = []
 text_waves = []
+objects = []
 
 fps = 60
 
@@ -63,6 +65,7 @@ def start_screen():
     screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
     text_coord = 50
+    Button(30, 30, 400, 100, 'НАЧАТЬ ИГРУ', new_game)
     for line in intro_text:
         string_rendered = font.render(line, 1, pygame.Color('red'))
         intro_rect = string_rendered.get_rect()
@@ -76,11 +79,18 @@ def start_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN and (event.key == 13):
+
+        for object in objects:
+            object.process()
+            if running:
                 return  # начинаем игру
+
         pygame.display.flip()
         clock.tick(fps)
 
+def new_game():
+    global running
+    running = True
 
 def pilImageToSurface(pilImage):
     mode, size, data = pilImage.mode, pilImage.size, pilImage.tobytes()
@@ -249,8 +259,12 @@ class Mag(pygame.sprite.Sprite):
             if self.move_y < 30:
                 self.move_y += 1
         while pygame.sprite.spritecollideany(self, vertical_borders):
-            self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
-            self.floor.rect = self.floor.rect.move(-self.move_x // abs(self.move_x), 0)
+            if self.move_x:
+                self.rect = self.rect.move(-self.move_x // abs(self.move_x), 0)
+                self.floor.rect = self.floor.rect.move(-self.move_x // abs(self.move_x), 0)
+            else:
+                self.rect = self.rect.move(1, 0)
+                self.floor.rect = self.floor.rect.move(1, 0)
 
     def move(self, x, y):
         self.move_x += x * FAST
@@ -379,7 +393,6 @@ class Mob(pygame.sprite.Sprite):
 class Boss(pygame.sprite.Sprite):
     image = load_image("boss.png")
     image1 = load_image("boss1.png")
-
 
     def __init__(self, number_wave):
         super().__init__(all_sprites, mobs)
@@ -723,6 +736,48 @@ def create_coins(columns, row):
             y_pos = i * (coin_size + 3) + y
             Coin(x_pos, y_pos, coin_size)
 
+class Button():
+    def __init__(self, x, y, width, height, buttonText, onclickFunction):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.onclickFunction = onclickFunction
+        self.alreadyPressed = False
+
+        self.fillColors = {
+            'normal': '#ffffff',
+            'hover': '#666666',
+            'pressed': '#333333',
+        }
+
+        self.buttonSurface = pygame.Surface((self.width, self.height))
+        self.buttonRect = pygame.Rect(self.x, self.y, self.width, self.height)
+        font = pygame.font.SysFont('Arial', 40)
+        self.buttonSurf = font.render(buttonText, True, (20, 20, 20))
+
+        objects.append(self)
+
+    def process(self):
+        font = pygame.font.SysFont('Arial', 40)
+        mousePos = pygame.mouse.get_pos()
+        self.buttonSurface.fill(self.fillColors['normal'])
+        if self.buttonRect.collidepoint(mousePos):
+            self.buttonSurface.fill(self.fillColors['hover'])
+            if pygame.mouse.get_pressed(num_buttons=3)[0]:
+                if not self.alreadyPressed:
+                    self.buttonSurface.fill(self.fillColors['pressed'])
+                    self.onclickFunction()
+                    self.alreadyPressed = True
+            else:
+                self.alreadyPressed = False
+
+        self.buttonSurface.blit(self.buttonSurf, [
+            self.buttonRect.width / 2 - self.buttonSurf.get_rect().width / 2,
+            self.buttonRect.height / 2 - self.buttonSurf.get_rect().height / 2
+        ])
+        screen.blit(self.buttonSurface, self.buttonRect)
+
 
 def show_go_screen():
     global bgfps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, number_wave, kol_mobs, poisons, MOBS_PER_SECOND
@@ -807,6 +862,7 @@ def show_go_screen():
             widthgm += 5
             background_rect = background.get_rect()
             screen.blit(background, (widthgm, 0))
+            Border(widthgm + width, -1000, widthgm + width, height, 0)
             if widthgm >= 0:
                 f = False
 
@@ -840,7 +896,7 @@ if __name__ == '__main__':
     mag = Mag((X_MAG_POS, Y_MAG_POS))
 
     # coins
-    create_coins(2, 10)
+    create_coins(1, 1)
 
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()  # starter tick
@@ -853,7 +909,6 @@ if __name__ == '__main__':
     number_wave = 1
     kol_mobs_wave = 0
     Wave_text(1)
-    running = True
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -912,7 +967,7 @@ if __name__ == '__main__':
             if kol_mobs_wave < number_wave * 10 and not text_waves:
                 if number_wave % 5 == 0 and kol_mobs_wave == (number_wave * 10 // 3 * 2):
                     boss = True
-                    b = Boss(number_wave)
+                    b = Boss(number_wave * 3)
                 else:
                     Mob()
                 kol_mobs_wave += 1
