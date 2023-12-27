@@ -896,7 +896,7 @@ if __name__ == '__main__':
     mag = Mag((X_MAG_POS, Y_MAG_POS))
 
     # coins
-    create_coins(1, 1)
+    create_coins(2, 10)
 
     clock = pygame.time.Clock()
     start_ticks = pygame.time.get_ticks()  # starter tick
