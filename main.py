@@ -801,7 +801,7 @@ def show_go_screen():
         if f:
             mob_list = pygame.sprite.groupcollide(mobs, golds, False, False)
             for j in mob_list:
-                j.pobegus()
+                j.running()
             shots_mobs = pygame.sprite.groupcollide(shots, mobs, False, False)
             mobs_shots = pygame.sprite.groupcollide(mobs, shots, False, False)
             for kill in shots_mobs:
@@ -858,6 +858,7 @@ def show_go_screen():
                 f = False
 
             pygame.display.flip()
+
 
 
 class Gold(pygame.sprite.Sprite):
