@@ -5,6 +5,7 @@ from PIL import Image, ImageSequence
 import random
 from math import sqrt
 
+pygame.mixer.pre_init(44100, -16, 2, 2048)  # setup mixer to avoid sound lag
 pygame.init()
 pygame.display.set_caption('Guardian')
 size = width, height = 1200, 800
@@ -24,6 +25,7 @@ X_MAG_POS = width // 2 + 100
 Y_MAG_POS = height // 2 + 100
 RESPAWNS = [(50, height - 150), (width - 50, height - 150), (100, 200), (width // 2, 5)]
 POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
+DEATHS = ["sounds/death1.mp3", "sounds/death2.mp3", "sounds/death3.mp3", "sounds/death4.mp3"]
 background_fps = 0
 FLAG = False
 boss = False
@@ -189,6 +191,9 @@ class Fireball(pygame.sprite.Sprite):
         self.move_y = 0
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
+        global boom_sound, booms
+        boom_sound.play(0)
+        booms += 1
 
     def update(self):
         self.rect = self.rect.move(self.move_x, self.move_y)
@@ -379,6 +384,9 @@ class Mob(pygame.sprite.Sprite):
         self.kill()
         create_particles((self.rect.x, self.rect.y))
         AnimatedSprite(load_image("boom.png"), 4, 4, self.rect.x - 25, self.rect.y - 25, 0)
+        i = random.randint(0, 3)
+        sound = pygame.mixer.Sound(DEATHS[i])
+        sound.play()
 
 
 class Boss(pygame.sprite.Sprite):
@@ -484,6 +492,9 @@ class Boss(pygame.sprite.Sprite):
                                random.randint(self.rect.y - 57, self.rect.y + 57), 0)
             global boss
             boss = False
+            i = random.randint(0, 3)
+            sound = pygame.mixer.Sound(DEATHS[i])
+            sound.play()
 
 
 class ProgressBar:
@@ -545,6 +556,8 @@ class Potion(pygame.sprite.Sprite):
     def death(self):
         self.kill()
         if self.cnt <= 200:
+            global potion_sound
+            potion_sound.play()
             create_particles((self.rect.x, self.rect.y))
             Effect(POISONS[self.x][0], POISONS[self.x][1])
             Effect_text(POISONS[self.x][1])
@@ -771,8 +784,12 @@ class Button:
 
 
 def show_go_screen():
-    global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs
-    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs
+    global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, boss
+    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms
+    Atime = seconds
+    Akills = d_kol_mobs
+    Awave = number_wave
+    Abooms = booms
     f = True
     background = pygame.transform.scale(load_image('gm.png'), (width, height))
     width_gameover = -width - 5
@@ -780,34 +797,43 @@ def show_go_screen():
     while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                with open("sessions.txt", "a") as text_file:
+                    acc = 0
+                    if Abooms:
+                        acc = int(Akills / Abooms * 100)
+                    text_file.write(
+                        f'\n{int(Atime)} seconds, {Akills} kills, {Awave} wave, {Abooms} shots, {acc}% accuracy')
                 waiting = False
                 terminate()
-            if event.type == pygame.KEYDOWN and (event.key == 97):
-                mag.move(-1, 0)
-            if event.type == pygame.KEYUP and (event.key == 97):
-                mag.move(1, 0)
-            if event.type == pygame.KEYDOWN and (event.key == 100):
-                mag.move(1, 0)
-            if event.type == pygame.KEYUP and (event.key == 100):
-                mag.move(-1, 0)
-            if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
-                mag.jumper()
-            if event.type == pygame.KEYDOWN and (event.key == 13):
-                mag.boom()
-
-        if not waiting:
-            break
         # main
         if f:
-            mob_list = pygame.sprite.groupcollide(mobs, golds, False, False)
-            for j in mob_list:
-                j.running()
-            shots_mobs = pygame.sprite.groupcollide(shots, mobs, False, False)
-            mobs_shots = pygame.sprite.groupcollide(mobs, shots, False, False)
-            for kill in shots_mobs:
-                kill.death()
-            for kill in mobs_shots:
-                kill.death()
+            seconds = (pygame.time.get_ticks() - start_ticks) / 1000
+            for event in pygame.event.get():
+                # mag
+                if event.type == pygame.KEYDOWN and (event.key == 97):
+                    mag.move(-1, 0)
+                if event.type == pygame.KEYUP and (event.key == 97):
+                    mag.move(1, 0)
+                if event.type == pygame.KEYDOWN and (event.key == 100):
+                    mag.move(1, 0)
+                if event.type == pygame.KEYUP and (event.key == 100):
+                    mag.move(-1, 0)
+                if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
+                    mag.jumper()
+                if event.type == pygame.KEYDOWN and (event.key == 13):
+                    mag.boom()
+
+            mobs_golds = pygame.sprite.groupcollide(mobs, golds, False, False)
+            for mob in mobs_golds:
+                mob.running()
+                rob_sound.play()
+
+            hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
+            hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
+            for hit in hits1:
+                hit.death()
+            for hit in hits2:
+                hit.death()
                 d_kol_mobs += 1
 
             if kol_mobs_wave >= number_wave * 10 and not mobs:
@@ -825,7 +851,11 @@ def show_go_screen():
 
             if seconds > kol_mobs:
                 if kol_mobs_wave < number_wave * 10 and not text_waves:
-                    Mob()
+                    if number_wave % 5 == 0 and kol_mobs_wave == (number_wave * 10 // 3 * 2):
+                        boss = True
+                        last_boss = Boss(number_wave * 3)
+                    else:
+                        Mob()
                     kol_mobs_wave += 1
                 kol_mobs += 1 / MOBS_PER_SECOND
 
@@ -846,6 +876,9 @@ def show_go_screen():
             all_sprites.draw(screen)
             all_sprites.update()
 
+            if boss:
+                last_boss.process_bar.update(screen, 0)
+
             for i in text_effects:
                 i.update(screen)
             for i in text_waves:
@@ -858,7 +891,37 @@ def show_go_screen():
                 f = False
 
             pygame.display.flip()
+        else:
+            font = pygame.font.SysFont('agencyfb', 100)
 
+            t = "Kills: " + str(Akills)
+            text = font.render(t, True, (255, 0, 0))
+            textRect = text.get_rect()
+            textRect.topleft = (50, 50)
+            screen.blit(text, textRect)
+
+            t = "Wave: " + str(Awave)
+            text = font.render(t, True, (255, 0, 0))
+            textRect = text.get_rect()
+            textRect.topright = (width - 50, 50)
+            screen.blit(text, textRect)
+
+            t = "Time: " + str(int(Atime)) + " sec"
+            text = font.render(t, True, (255, 0, 0))
+            textRect = text.get_rect()
+            textRect.bottomleft = (50, height - 50)
+            screen.blit(text, textRect)
+
+            acc = 0
+            if Abooms:
+                acc = int(Akills / Abooms * 100)
+            t = "Accuracy: " + str(acc) + "%"
+            text = font.render(t, True, (255, 0, 0))
+            textRect = text.get_rect()
+            textRect.bottomright = (width - 50, height - 50)
+            screen.blit(text, textRect)
+
+            pygame.display.flip()
 
 
 class Gold(pygame.sprite.Sprite):
@@ -875,8 +938,18 @@ class Gold(pygame.sprite.Sprite):
 
 
 if __name__ == '__main__':
+    pygame.mixer.music.load("sounds/start.mp3")
+    pygame.mixer.music.play(-1)
     clock = pygame.time.Clock()
     start_screen()
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load("sounds/fight.mp3")
+    pygame.mixer.music.play(-1)
+    boom_sound = pygame.mixer.Sound('sounds/boom.mp3')
+    boom_sound.set_volume(0.7)
+    potion_sound = pygame.mixer.Sound('sounds/potion.mp3')
+    rob_sound = pygame.mixer.Sound('sounds/rob.mp3')
+    gameover_sound = pygame.mixer.Sound('sounds/gameover.mp3')
 
     # background
     Border(0, 760, width, 760, 0)
@@ -908,6 +981,7 @@ if __name__ == '__main__':
     kol_mobs_wave = 0
     Wave_text(1)
     last_boss = None
+    booms = 0
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -931,12 +1005,14 @@ if __name__ == '__main__':
         mobs_golds = pygame.sprite.groupcollide(mobs, golds, False, False)
         for mob in mobs_golds:
             mob.running()
+            gold_coins[-1].death()
             if isinstance(mob, Boss):
                 for i in range(4):
                     if gold_coins:
                         gold_coins[-1].death()
-            gold_coins[-1].death()
+            rob_sound.play()
             if not gold_coins:
+                gameover_sound.play()
                 show_go_screen()
                 running = False
                 terminate()
