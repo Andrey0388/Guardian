@@ -4,3 +4,8 @@
 36 seconds, 4 kills, 2 wave, 50 shots, 8% accuracy
 45 seconds, 5 kills, 2 wave, 11 shots, 45% accuracy
 59 seconds, 22 kills, 3 wave, 121 shots, 18% accuracy
+43 seconds, 5 kills, 2 wave, 16 shots, 31% accuracy
+232 seconds, 333 kills, 8 wave, 1167 shots, 28% accuracy
+84 seconds, 53 kills, 4 wave, 172 shots, 30% accuracy
+114 seconds, 95 kills, 5 wave, 417 shots, 22% accuracy
+428 seconds, 858 kills, 13 wave, 3120 shots, 27% accuracy
