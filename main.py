@@ -28,7 +28,6 @@ POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
 DEATHS = ["sounds/death1.mp3", "sounds/death2.mp3", "sounds/death3.mp3", "sounds/death4.mp3"]
 background_fps = 0
 FLAG = False
-boss = False
 running = False
 
 horizontal_borders = pygame.sprite.Group()
@@ -55,27 +54,29 @@ def terminate():
 def start_screen():
     intro_text = ["Guardian", "",
                   "Правила игры",
-                  "Ваша задача не подпустить врагов в вашему золоту,",
+                  "Ваша задача не подпустить врагов к вашему золоту,",
+                  "У вас будет 20 монет (в левом верхнем углу)",
+                  "Гномы будут их красть (по 1 монете)",
+                  "Каждую пятую волну приходить босс, который медленнее остальных,",
+                  "но имеет большой запас здоровья и крадёт 5 монет",
+                  "зелья появляются каждые 20 секунд и могут принести баф или дебаф",
                   "enter - стрелять,",
                   "space - прыжок,",
-                  "a, d - движение"
-                  ""
-                  "ДЛЯ ПРОДОЛЖЕНИЯ НАЖМИТЕ enter"]
+                  "a, d - движение"]
 
     fon = pygame.transform.scale(load_image('fon.png'), (width, height))
     screen.blit(fon, (0, 0))
-    font = pygame.font.Font(None, 30)
+    font = pygame.font.SysFont('gabriola', 50)
     text_coord = 50
-    Button(30, 30, 400, 100, 'НАЧАТЬ ИГРУ', new_game)
+    Button(width - 450, 50, 400, 100, 'НАЧАТЬ ИГРУ', new_game)
     for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('red'))
+        string_rendered = font.render(line, 1, pygame.Color('yellow'))
         intro_rect = string_rendered.get_rect()
         text_coord += 10
         intro_rect.top = text_coord
         intro_rect.x = 10
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
-
     while True:
         for new_event in pygame.event.get():
             if new_event.type == pygame.QUIT:
@@ -456,8 +457,8 @@ class Boss(pygame.sprite.Sprite):
 
         if self.rect.x < -100 or self.rect.x > width + 100:
             self.kill()
-            global boss
-            boss = False
+        else:
+            self.process_bar.update(screen, 0)
 
     def running(self):
         x = self.rect.x
@@ -637,7 +638,7 @@ def create_particles(position):
 
 class Effect_text:
     def __init__(self, text):
-        font = pygame.font.SysFont('agencyfb', 50)
+        font = pygame.font.SysFont('gabriola', 50)
         self.text = font.render(text, True, (255, 0, 0))
         self.textRect = self.text.get_rect()
         self.textRect.topleft = (width // 2 + 300, 10)
@@ -653,10 +654,10 @@ class Effect_text:
 
 class Wave_text:
     def __init__(self, number_wave):
-        text = f'WAVE {number_wave}'
+        text = f'Wave {number_wave}'
         if number_wave % 5 == 0:
-            text += " BOSS"
-        font = pygame.font.SysFont('agencyfb', 100)
+            text += " boss"
+        font = pygame.font.SysFont('gabriola', 100)
         self.text = font.render(text, True, (255, 0, 0))
         self.textRect = self.text.get_rect()
         self.textRect.center = (width // 2, height // 2)
@@ -689,7 +690,7 @@ class Game_clock:
         secs = str(int(seconds % 60 // 1))
         if len(secs) < 2:
             secs = "0" + secs
-        font = pygame.font.SysFont('agencyfb', 50)
+        font = pygame.font.SysFont('gabriola', 50)
         t = f'{mins}:{secs}'
         text = font.render(t, True, (255, 0, 0))
         textRect = text.get_rect()
@@ -703,7 +704,7 @@ class Kills:
         self.y = y
 
     def update(self, screen, kills):
-        font = pygame.font.SysFont('agencyfb', 50)
+        font = pygame.font.SysFont("gabriola", 50)
         t = "Kills: " + str(kills)
         text = font.render(t, True, (255, 0, 0))
         textRect = text.get_rect()
@@ -876,9 +877,6 @@ def show_go_screen():
             all_sprites.draw(screen)
             all_sprites.update()
 
-            if boss:
-                last_boss.process_bar.update(screen, 0)
-
             for i in text_effects:
                 i.update(screen)
             for i in text_waves:
@@ -892,7 +890,7 @@ def show_go_screen():
 
             pygame.display.flip()
         else:
-            font = pygame.font.SysFont('agencyfb', 100)
+            font = pygame.font.SysFont('gabriola', 100)
 
             t = "Kills: " + str(Akills)
             text = font.render(t, True, (255, 0, 0))
@@ -980,7 +978,6 @@ if __name__ == '__main__':
     number_wave = 1
     kol_mobs_wave = 0
     Wave_text(1)
-    last_boss = None
     booms = 0
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
@@ -1041,8 +1038,7 @@ if __name__ == '__main__':
         if seconds > kol_mobs:
             if kol_mobs_wave < number_wave * 10 and not text_waves:
                 if number_wave % 5 == 0 and kol_mobs_wave == (number_wave * 10 // 3 * 2):
-                    boss = True
-                    last_boss = Boss(number_wave * 3)
+                    Boss(number_wave * 3)
                 else:
                     Mob()
                 kol_mobs_wave += 1
@@ -1064,9 +1060,6 @@ if __name__ == '__main__':
         background_fps += fps
         all_sprites.draw(screen)
         all_sprites.update()
-
-        if boss:
-            last_boss.process_bar.update(screen, 0)
 
         for i in text_effects:
             i.update(screen)
