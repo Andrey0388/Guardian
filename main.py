@@ -4,6 +4,7 @@ import sys
 from PIL import Image, ImageSequence
 import random
 from math import sqrt
+import sqlite3
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)  # setup mixer to avoid sound lag
 pygame.init()
@@ -579,7 +580,6 @@ class Potion(pygame.sprite.Sprite):
         if self.cnt <= 200:
             global potion_sound
             potion_sound.play()
-            create_particles((self.rect.x, self.rect.y))
             Effect(POISONS[self.x][0], POISONS[self.x][1])
             Effect_text(POISONS[self.x][1])
 
@@ -651,9 +651,11 @@ class WavePotion(pygame.sprite.Sprite):
 
 class Particle(pygame.sprite.Sprite):
     # сгенерируем частицы разного размера
-    fire = [load_image("star.png")]
+    f = [load_image("cr.png"), load_image("g.png")]
+    fire = []
     for scale in (5, 10, 20):
-        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+        for i in f:
+            fire.append(pygame.transform.scale(i, (scale, scale)))
 
     def __init__(self, pos, dx, dy):
         super().__init__(all_sprites)
@@ -851,12 +853,21 @@ def show_go_screen():
     while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                with open("sessions.txt", "a") as text_file:
-                    acc = 0
-                    if Abooms:
-                        acc = int(Akills / Abooms * 100)
-                    text_file.write(
-                        f'\n{int(Atime)} seconds, {Akills} kills, {Awave} wave, {Abooms} shots, {acc}% accuracy')
+                acc = 0
+                if Abooms:
+                    acc = int(Akills / Abooms * 100)
+                con = sqlite3.connect("sessions_bd.sqlite")
+                cur = con.cursor()
+                cur.execute('PRAGMA integrity_check')
+                result = cur.fetchone()[0]
+                if result == 'ok':
+                    print('Database file is in the correct format')
+                else:
+                    print('Database file is not in the correct format')
+                result1 = cur.execute("""INSERT INTO sessions(seconds,kills,wave,shots,accuracy) VALUES(?,?,?,?,?)""",
+                                      (Atime, Akills, Awave, Abooms, acc,))
+                con.commit()
+                con.close()
                 waiting = False
                 terminate()
             if f:
@@ -1021,7 +1032,7 @@ if __name__ == '__main__':
     mag = Mag((X_MAG_POS, Y_MAG_POS))
 
     # coins
-    create_coins(2, 10)
+    create_coins(1, 1)
 
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0

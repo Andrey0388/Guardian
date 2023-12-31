@@ -1,0 +1,80 @@
+--
+-- Файл сгенерирован с помощью SQLiteStudio v3.4.4 в Вс дек 31 21:06:47 2023
+--
+-- Использованная кодировка текста: System
+--
+PRAGMA foreign_keys = off;
+BEGIN TRANSACTION;
+
+-- Таблица: sessions
+CREATE TABLE sessions (
+    seconds  INTEGER,
+    kills    INTEGER,
+    wave     INTEGER,
+    shots    INTEGER,
+    accuracy INTEGER
+);
+
+INSERT INTO sessions (
+                         seconds,
+                         kills,
+                         wave,
+                         shots,
+                         accuracy
+                     )
+                     VALUES (
+                         384,
+                         760,
+                         12,
+                         2041,
+                         37
+                     );
+
+INSERT INTO sessions (
+                         seconds,
+                         kills,
+                         wave,
+                         shots,
+                         accuracy
+                     )
+                     VALUES (
+                         38,
+                         0,
+                         2,
+                         0,
+                         0
+                     );
+
+INSERT INTO sessions (
+                         seconds,
+                         kills,
+                         wave,
+                         shots,
+                         accuracy
+                     )
+                     VALUES (
+                         272,
+                         440,
+                         9,
+                         1401,
+                         31
+                     );
+
+INSERT INTO sessions (
+                         seconds,
+                         kills,
+                         wave,
+                         shots,
+                         accuracy
+                     )
+                     VALUES (
+                         521,
+                         1162,
+                         15,
+                         2913,
+                         39
+                     );
+
+
+COMMIT TRANSACTION;
+PRAGMA foreign_keys = on;
