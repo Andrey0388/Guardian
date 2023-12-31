@@ -21,14 +21,15 @@ GRAVITY = 0.3
 PLATFORM_GRAVITY = 2
 SHOTS_PER_SECOND = 2  # 65 - 70 максимум при скорости FAST_BOOM 14
 MOBS_PER_SECOND = 1
-X_MAG_POS = width // 2 + 100
+X_MAG_POS = 417
 Y_MAG_POS = height // 2 + 100
 RESPAWNS = [(50, height - 150), (width - 50, height - 150), (100, 200), (width // 2, 5)]
-POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS")]
+POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS"), (-FAST_MOB, "STOP"), (1, "RUN"), (0, "WAVE"), (0, "BOTH")]
 DEATHS = ["sounds/death1.mp3", "sounds/death2.mp3", "sounds/death3.mp3", "sounds/death4.mp3"]
 background_fps = 0
 FLAG = False
 running = False
+BOTH = False
 
 horizontal_borders = pygame.sprite.Group()
 vertical_borders = pygame.sprite.Group()
@@ -38,6 +39,7 @@ mag_group = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 mobs = pygame.sprite.Group()
 golds = pygame.sprite.Group()
+wave_potions = pygame.sprite.Group()
 gold_coins = []
 text_effects = []
 text_waves = []
@@ -272,6 +274,9 @@ class Mag(pygame.sprite.Sprite):
 
     def boom(self):
         Fireball((self.rect.x, self.rect.y), -(int(self.v) * 2 - 1) * FAST_BOOM)
+        global BOTH
+        if BOTH:
+            Fireball((self.rect.x, self.rect.y), (int(self.v) * 2 - 1) * FAST_BOOM)
 
     def jumper(self):
         self.kol_jump += 1
@@ -364,21 +369,24 @@ class Mob(pygame.sprite.Sprite):
     def running(self):
         x = self.rect.x
         y = self.rect.y
-        self.image = Mob.image1
-        self.rect = self.image.get_rect()
-        # вычисляем маску для эффективного сравнения
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rect.x = x - 29
-        self.rect.y = y - 15
         mobs.remove(self)
         self.run = True
         if self.rect.x != mag.rect.x:
             self.stor = (self.rect.x - mag.rect.x) // abs(self.rect.x - mag.rect.x)
-            if self.stor > 0:
-                self.image = pygame.transform.flip(self.image, True, False)
-                self.mask = pygame.mask.from_surface(self.image)
         else:
-            self.stor = self.move_x // abs(self.move_x)
+            self.stor = -self.move_x // abs(self.move_x)
+        self.image = Mob.image1
+        self.rect = self.image.get_rect()
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.y = y - 15
+        if self.stor < 0:
+            self.rect.x = x - 29
+        else:
+            self.rect.x = x
+        if self.stor > 0:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
         self.move_x = self.stor * 5
 
     def death(self):
@@ -463,22 +471,21 @@ class Boss(pygame.sprite.Sprite):
     def running(self):
         x = self.rect.x
         y = self.rect.y
-        self.image = Boss.image1
-        self.image = pygame.transform.scale(self.image, (108, 140))
-        self.rect = self.image.get_rect()
-        # вычисляем маску для эффективного сравнения
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rect.x = x - 14
-        self.rect.y = y - 23
         mobs.remove(self)
         self.run = True
         if self.rect.x != mag.rect.x:
             self.stor = (self.rect.x - mag.rect.x) // abs(self.rect.x - mag.rect.x)
-            if self.stor > 0:
-                self.image = pygame.transform.flip(self.image, True, False)
-                self.mask = pygame.mask.from_surface(self.image)
         else:
-            self.stor = self.move_x // abs(self.move_x)
+            self.stor = -self.move_x // abs(self.move_x)
+        self.image = Boss.image1
+        self.image = pygame.transform.scale(self.image, (108, 140))
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.y = y - 23
+        self.rect.x = x - 7
+        if self.stor > 0:
+            self.image = pygame.transform.flip(self.image, True, False)
+            self.mask = pygame.mask.from_surface(self.image)
         self.move_x = self.stor * 3
         self.process_bar.move(0, -23)
 
@@ -551,6 +558,19 @@ class Potion(pygame.sprite.Sprite):
                 global FLAG
                 FLAG = True
                 self.death()
+            if POISONS[self.x][1] == "BOTH":
+                global BOTH
+                BOTH = True
+                self.death()
+            if POISONS[self.x][1] == "STOP" or POISONS[self.x][1] == "RUN":
+                global FAST_MOB
+                FAST_MOB += POISONS[self.x][0]
+                self.death()
+            if POISONS[self.x][1] == "WAVE":
+                WavePotion(self.rect.x + Potion.image.get_width() // 2, self.rect.y + Potion.image.get_height() // 2)
+                global potion_sound
+                potion_sound.play()
+                self.kill()
         if self.cnt > 200:
             self.death()
 
@@ -585,15 +605,48 @@ class Effect(pygame.sprite.Sprite):
             if self.name == "JUMP":
                 global JUMP
                 JUMP -= self.effect
-                self.kill()
-                text_effects.clear()
             if self.name == "BOOMS":
                 global FLAG
                 FLAG = False
-                self.kill()
-                text_effects.clear()
+            if self.name == "BOTH":
+                global BOTH
+                BOTH = False
+            if self.name == "STOP" or self.name == "RUN":
+                global FAST_MOB
+                FAST_MOB -= self.effect
+            self.kill()
+            text_effects.clear()
         self.alpha -= 0.2
         pygame.Surface.set_alpha(self.image, self.alpha)
+
+
+class WavePotion(pygame.sprite.Sprite):
+    image = load_image("wave_potion.png")
+
+    def __init__(self, x, y):
+        super().__init__(all_sprites, wave_potions)
+        self.image = pygame.transform.scale(WavePotion.image, (1, 1))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.size = 1
+        self.alpha = 255
+
+    def update(self):
+        self.size += 30
+        self.alpha -= 5
+        x = self.rect.x
+        y = self.rect.y
+        self.image = pygame.transform.scale(WavePotion.image, (self.size, self.size))
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+        self.rect.x = x - 15
+        self.rect.y = y - 15
+        pygame.Surface.set_alpha(self.image, self.alpha)
+        if self.alpha <= 0:
+            self.kill()
 
 
 class Particle(pygame.sprite.Sprite):
@@ -786,7 +839,7 @@ class Button:
 
 def show_go_screen():
     global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, boss
-    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms
+    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms, r, l
     Atime = seconds
     Akills = d_kol_mobs
     Awave = number_wave
@@ -806,24 +859,26 @@ def show_go_screen():
                         f'\n{int(Atime)} seconds, {Akills} kills, {Awave} wave, {Abooms} shots, {acc}% accuracy')
                 waiting = False
                 terminate()
-        # main
-        if f:
-            seconds = (pygame.time.get_ticks() - start_ticks) / 1000
-            for event in pygame.event.get():
-                # mag
+            if f:
                 if event.type == pygame.KEYDOWN and (event.key == 97):
                     mag.move(-1, 0)
-                if event.type == pygame.KEYUP and (event.key == 97):
+                    r = True
+                if event.type == pygame.KEYUP and (event.key == 97) and r:
                     mag.move(1, 0)
+                    r = False
                 if event.type == pygame.KEYDOWN and (event.key == 100):
                     mag.move(1, 0)
-                if event.type == pygame.KEYUP and (event.key == 100):
+                    l = True
+                if event.type == pygame.KEYUP and (event.key == 100) and l:
                     mag.move(-1, 0)
+                    l = False
                 if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                     mag.jumper()
                 if event.type == pygame.KEYDOWN and (event.key == 13):
                     mag.boom()
-
+        # main
+        if f:
+            seconds = (pygame.time.get_ticks() - start_ticks) / 1000
             mobs_golds = pygame.sprite.groupcollide(mobs, golds, False, False)
             for mob in mobs_golds:
                 mob.running()
@@ -979,6 +1034,8 @@ if __name__ == '__main__':
     kol_mobs_wave = 0
     Wave_text(1)
     booms = 0
+    r = False
+    l = False
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -988,12 +1045,16 @@ if __name__ == '__main__':
             # mag
             if event.type == pygame.KEYDOWN and (event.key == 97):
                 mag.move(-1, 0)
-            if event.type == pygame.KEYUP and (event.key == 97):
+                r = True
+            if event.type == pygame.KEYUP and (event.key == 97) and r:
                 mag.move(1, 0)
+                r = False
             if event.type == pygame.KEYDOWN and (event.key == 100):
                 mag.move(1, 0)
-            if event.type == pygame.KEYUP and (event.key == 100):
+                l = True
+            if event.type == pygame.KEYUP and (event.key == 100) and l:
                 mag.move(-1, 0)
+                l = False
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
             if event.type == pygame.KEYDOWN and (event.key == 13):
@@ -1016,9 +1077,13 @@ if __name__ == '__main__':
 
         hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
         hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
+        hits3 = pygame.sprite.groupcollide(mobs, wave_potions, False, False)
         for hit in hits1:
             hit.death()
         for hit in hits2:
+            hit.death()
+            d_kol_mobs += 1
+        for hit in hits3:
             hit.death()
             d_kol_mobs += 1
 
@@ -1060,6 +1125,13 @@ if __name__ == '__main__':
         background_fps += fps
         all_sprites.draw(screen)
         all_sprites.update()
+
+        font = pygame.font.SysFont('gabriola', 50)
+        t = "fps: " + str(int(clock.get_fps()))
+        text = font.render(t, True, (255, 0, 0))
+        textRect = text.get_rect()
+        textRect.bottomright = (width - 10, height - 10)
+        screen.blit(text, textRect)
 
         for i in text_effects:
             i.update(screen)
