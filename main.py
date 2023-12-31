@@ -865,7 +865,7 @@ def show_go_screen():
                 else:
                     print('Database file is not in the correct format')
                 result1 = cur.execute("""INSERT INTO sessions(seconds,kills,wave,shots,accuracy) VALUES(?,?,?,?,?)""",
-                                      (Atime, Akills, Awave, Abooms, acc,))
+                                      (Atime, Akills, Awave, Abooms, acc,)) #f
                 con.commit()
                 con.close()
                 waiting = False
