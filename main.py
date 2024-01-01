@@ -842,7 +842,7 @@ class Button:
 def show_go_screen():
     global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, boss
     global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms, r, l
-    Atime = seconds
+    Atime = int(seconds)
     Akills = d_kol_mobs
     Awave = number_wave
     Abooms = booms
@@ -859,7 +859,7 @@ def show_go_screen():
                 con = sqlite3.connect("sessions_db.sqlite")
                 cur = con.cursor()
                 cur.execute("""INSERT INTO sessions(seconds,kills,wave,shots,accuracy) VALUES(?,?,?,?,?)""",
-                                      (Atime, Akills, Awave, Abooms, acc,))
+                            (Atime, Akills, Awave, Abooms, acc,))
                 con.commit()
                 con.close()
                 waiting = False
@@ -1045,6 +1045,15 @@ if __name__ == '__main__':
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                acc = 0
+                if booms:
+                    acc = int(d_kol_mobs / booms * 100)
+                con = sqlite3.connect("sessions_db.sqlite")
+                cur = con.cursor()
+                cur.execute("""INSERT INTO sessions(seconds,kills,wave,shots,accuracy) VALUES(?,?,?,?,?)""",
+                            (int(seconds), d_kol_mobs, number_wave, booms, acc,))
+                con.commit()
+                con.close()
                 running = False
                 terminate()
             # mag
