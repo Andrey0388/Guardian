@@ -584,23 +584,14 @@ class Potion(pygame.sprite.Sprite):
             Effect_text(POISONS[self.x][1])
 
 
-class Effect(pygame.sprite.Sprite):
-    image = load_image("effect.png")
-
+class Effect:
     def __init__(self, effect, name):
-        super().__init__(all_sprites)
-        self.image = pygame.transform.scale(Effect.image, (width, height))
-        pygame.Surface.set_alpha(self.image, 120)
-        self.rect = self.image.get_rect()
-        self.rect.x = 0
-        self.rect.y = 0
-        # вычисляем маску для эффективного сравнения
-        self.mask = pygame.mask.from_surface(self.image)
-        self.effect = effect
         self.name = name
+        self.effect = effect
         self.alpha = 120
+        text_effects.append(self)
 
-    def update(self):
+    def update(self, screen):
         if self.alpha <= 0:
             if self.name == "JUMP":
                 global JUMP
@@ -614,10 +605,8 @@ class Effect(pygame.sprite.Sprite):
             if self.name == "STOP" or self.name == "RUN":
                 global FAST_MOB
                 FAST_MOB -= self.effect
-            self.kill()
             text_effects.clear()
         self.alpha -= 0.2
-        pygame.Surface.set_alpha(self.image, self.alpha)
 
 
 class WavePotion(pygame.sprite.Sprite):
@@ -682,11 +671,15 @@ class Particle(pygame.sprite.Sprite):
             self.kill()
 
 
-def create_particles(position):
+def create_particles(position, i=False):
     # количество создаваемых частиц
     particle_count = 20
+    if i:
+        particle_count = 100
     # возможные скорости
     numbers = range(-5, 6)
+    if i:
+        numbers = range(-20, 21)
     for _ in range(particle_count):
         Particle(position, random.choice(numbers), random.choice(numbers))
 
@@ -947,6 +940,8 @@ def show_go_screen():
             Border(width_gameover + width, -1000, width_gameover + width, height, 0)
             if width_gameover >= 0:
                 f = False
+            if width_gameover >= -75:
+                create_particles((mag.rect.x, mag.rect.y), True)
 
             pygame.display.flip()
         else:
