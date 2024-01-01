@@ -584,14 +584,23 @@ class Potion(pygame.sprite.Sprite):
             Effect_text(POISONS[self.x][1])
 
 
-class Effect:
-    def __init__(self, effect, name):
-        self.name = name
-        self.effect = effect
-        self.alpha = 120
-        text_effects.append(self)
+class Effect(pygame.sprite.Sprite):
+    image = load_image("effect.png")
 
-    def update(self, screen):
+    def __init__(self, effect, name):
+        super().__init__(all_sprites)
+        self.image = pygame.transform.scale(Effect.image, (width, height))
+        pygame.Surface.set_alpha(self.image, 120)
+        self.rect = self.image.get_rect()
+        self.rect.x = 0
+        self.rect.y = 0
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+        self.effect = effect
+        self.name = name
+        self.alpha = 120
+
+    def update(self):
         if self.alpha <= 0:
             if self.name == "JUMP":
                 global JUMP
@@ -605,8 +614,10 @@ class Effect:
             if self.name == "STOP" or self.name == "RUN":
                 global FAST_MOB
                 FAST_MOB -= self.effect
+            self.kill()
             text_effects.clear()
         self.alpha -= 0.2
+        pygame.Surface.set_alpha(self.image, self.alpha)
 
 
 class WavePotion(pygame.sprite.Sprite):
