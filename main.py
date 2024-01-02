@@ -69,11 +69,11 @@ def start_screen():
 
     fon = pygame.transform.scale(load_image('fon.png'), (width, height))
     screen.blit(fon, (0, 0))
-    font = pygame.font.SysFont('gabriola', 50)
+    font_text = pygame.font.SysFont('gabriola', 50)
     text_coord = 50
     Button(width - 450, 50, 400, 100, 'НАЧАТЬ ИГРУ', new_game)
     for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('yellow'))
+        string_rendered = font_text.render(line, 1, pygame.Color('yellow'))
         intro_rect = string_rendered.get_rect()
         text_coord += 10
         intro_rect.top = text_coord
@@ -210,7 +210,7 @@ class Fireball(pygame.sprite.Sprite):
 
 
 class Floor(pygame.sprite.Sprite):
-    def __init__(self, x1, y1, x2, y2, f):
+    def __init__(self, x1, y1, x2, f):
         super().__init__(all_sprites, floor_group)
         self.image = pygame.Surface([x2 - x1, 1], pygame.SRCALPHA)
         self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
@@ -233,7 +233,7 @@ class Mag(pygame.sprite.Sprite):
         self.v = True
         self.jump = 0
         self.kol_jump = 0
-        self.floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, Y_MAG_POS + 109, 0)
+        self.floor = Floor(X_MAG_POS, Y_MAG_POS + 109, X_MAG_POS + 70, 0)
 
     def update(self):
         if self.move_x > 0 and self.v:
@@ -499,8 +499,6 @@ class Boss(pygame.sprite.Sprite):
                 AnimatedSprite(load_image("boom.png"), 4, 4,
                                random.randint(self.rect.x - 40, self.rect.x + 40),
                                random.randint(self.rect.y - 57, self.rect.y + 57), 0)
-            global boss
-            boss = False
             i = random.randint(0, 3)
             sound = pygame.mixer.Sound(DEATHS[i])
             sound.play()
@@ -539,6 +537,7 @@ class Potion(pygame.sprite.Sprite):
 
     def __init__(self):
         super().__init__(all_sprites)
+        self.x = None
         self.image = Potion.image
         self.rect = self.image.get_rect()
         self.rect.x = random.randint(100, width - 100)
@@ -843,9 +842,22 @@ class Button:
         screen.blit(self.buttonSurface, self.buttonRect)
 
 
+class Gold(pygame.sprite.Sprite):
+    image = load_image("gold.png")
+
+    def __init__(self, x, y):
+        super().__init__(all_sprites, golds)
+        self.image = Gold.image
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        # вычисляем маску для эффективного сравнения
+        self.mask = pygame.mask.from_surface(self.image)
+
+
 def show_go_screen():
-    global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, boss
-    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms, r, l
+    global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs
+    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms, r, li
     Atime = int(seconds)
     Akills = d_kol_mobs
     Awave = number_wave
@@ -877,17 +889,16 @@ def show_go_screen():
                     r = False
                 if event.type == pygame.KEYDOWN and (event.key == 100):
                     mag.move(1, 0)
-                    l = True
-                if event.type == pygame.KEYUP and (event.key == 100) and l:
+                li = True
+                if event.type == pygame.KEYUP and (event.key == 100) and li:
                     mag.move(-1, 0)
-                    l = False
+                li = False
                 if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                     mag.jumper()
                 if event.type == pygame.KEYDOWN and (event.key == 13):
                     mag.boom()
         # main
         if f:
-            seconds = (pygame.time.get_ticks() - start_ticks) / 1000
             mobs_golds = pygame.sprite.groupcollide(mobs, golds, False, False)
             for mob in mobs_golds:
                 mob.running()
@@ -895,9 +906,13 @@ def show_go_screen():
 
             hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
             hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
+            hits3 = pygame.sprite.groupcollide(mobs, wave_potions, False, False)
             for hit in hits1:
                 hit.death()
             for hit in hits2:
+                hit.death()
+                d_kol_mobs += 1
+            for hit in hits3:
                 hit.death()
                 d_kol_mobs += 1
 
@@ -917,8 +932,7 @@ def show_go_screen():
             if seconds > kol_mobs:
                 if kol_mobs_wave < number_wave * 10 and not text_waves:
                     if number_wave % 5 == 0 and kol_mobs_wave == (number_wave * 10 // 3 * 2):
-                        boss = True
-                        last_boss = Boss(number_wave * 3)
+                        Boss(number_wave * 3)
                     else:
                         Mob()
                     kol_mobs_wave += 1
@@ -940,6 +954,13 @@ def show_go_screen():
             background_fps += fps
             all_sprites.draw(screen)
             all_sprites.update()
+
+            font = pygame.font.SysFont('gabriola', 50)
+            t = "fps: " + str(int(clock.get_fps()))
+            text = font.render(t, True, (255, 0, 0))
+            textRect = text.get_rect()
+            textRect.bottomright = (width - 10, height - 10)
+            screen.blit(text, textRect)
 
             for i in text_effects:
                 i.update(screen)
@@ -988,19 +1009,6 @@ def show_go_screen():
             pygame.display.flip()
 
 
-class Gold(pygame.sprite.Sprite):
-    image = load_image("gold.png")
-
-    def __init__(self, x, y):
-        super().__init__(all_sprites, golds)
-        self.image = Gold.image
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        # вычисляем маску для эффективного сравнения
-        self.mask = pygame.mask.from_surface(self.image)
-
-
 if __name__ == '__main__':
     pygame.mixer.music.load("sounds/start.mp3")
     pygame.mixer.music.play(-1)
@@ -1046,7 +1054,7 @@ if __name__ == '__main__':
     Wave_text(1)
     booms = 0
     r = False
-    l = False
+    li = False
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -1071,10 +1079,10 @@ if __name__ == '__main__':
                 r = False
             if event.type == pygame.KEYDOWN and (event.key == 100):
                 mag.move(1, 0)
-                l = True
-            if event.type == pygame.KEYUP and (event.key == 100) and l:
+            li = True
+            if event.type == pygame.KEYUP and (event.key == 100) and li:
                 mag.move(-1, 0)
-                l = False
+            li = False
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
             if event.type == pygame.KEYDOWN and (event.key == 13):
