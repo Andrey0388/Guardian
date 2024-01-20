@@ -20,7 +20,6 @@ JUMP = 20
 FLOOR_GRAVITY = 8
 GRAVITY = 0.3
 PLATFORM_GRAVITY = 2
-SHOTS_PER_SECOND = 2  # 65 - 70 максимум при скорости FAST_BOOM 14
 MOBS_PER_SECOND = 1
 X_MAG_POS = 417
 Y_MAG_POS = height // 2 + 100
@@ -29,7 +28,7 @@ POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS"), (-FAST_MOB, "STOP"), (1, "RU
 DEATHS = ["sounds/death1.mp3", "sounds/death2.mp3", "sounds/death3.mp3", "sounds/death4.mp3"]
 background_fps = 0
 FLAG = False
-running = False
+tap = False
 BOTH = False
 
 horizontal_borders = pygame.sprite.Group()
@@ -52,6 +51,53 @@ fps = 60
 def terminate():
     pygame.quit()
     sys.exit()
+
+
+def refresh():
+    global size, width, height, screen, all_sprites, screen_rect, FAST, FAST_BOOM, FAST_MOB, JUMP, FLOOR_GRAVITY
+    global GRAVITY, PLATFORM_GRAVITY, MOBS_PER_SECOND, X_MAG_POS, Y_MAG_POS, RESPAWNS, POISONS, DEATHS, background_fps
+    global FLAG, tap, BOTH, vertical_borders, platforms, floor_group, mag_group, shots, mobs, golds, wave_potions
+    global gold_coins, text_effects, text_waves, objects, fps
+    pygame.mixer.pre_init(44100, -16, 2, 2048)  # setup mixer to avoid sound lag
+    pygame.init()
+    pygame.display.set_caption('Guardian')
+    size = width, height = 1200, 800
+    screen = pygame.display.set_mode(size)
+    all_sprites = pygame.sprite.Group()
+    screen_rect = (0, 0, width, height)
+    FAST = 7
+    FAST_BOOM = 14
+    FAST_MOB = 2
+    JUMP = 20
+    FLOOR_GRAVITY = 8
+    GRAVITY = 0.3
+    PLATFORM_GRAVITY = 2
+    MOBS_PER_SECOND = 1
+    X_MAG_POS = 417
+    Y_MAG_POS = height // 2 + 100
+    RESPAWNS = [(50, height - 150), (width - 50, height - 150), (100, 200), (width // 2, 5)]
+    POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS"), (-FAST_MOB, "STOP"), (1, "RUN"), (0, "WAVE"), (0, "BOTH")]
+    DEATHS = ["sounds/death1.mp3", "sounds/death2.mp3", "sounds/death3.mp3", "sounds/death4.mp3"]
+    background_fps = 0
+    FLAG = False
+    tap = False
+    BOTH = False
+
+    horizontal_borders = pygame.sprite.Group()
+    vertical_borders = pygame.sprite.Group()
+    platforms = pygame.sprite.Group()
+    floor_group = pygame.sprite.Group()
+    mag_group = pygame.sprite.Group()
+    shots = pygame.sprite.Group()
+    mobs = pygame.sprite.Group()
+    golds = pygame.sprite.Group()
+    wave_potions = pygame.sprite.Group()
+    gold_coins = []
+    text_effects = []
+    text_waves = []
+    objects = []
+
+    fps = 60
 
 
 def start_screen():
@@ -87,7 +133,9 @@ def start_screen():
 
         for new_object in objects:
             new_object.process()
-            if running:
+            global tap
+            if tap:
+                tap = False
                 return  # начинаем игру
 
         pygame.display.flip()
@@ -95,8 +143,8 @@ def start_screen():
 
 
 def new_game():
-    global running
-    running = True
+    global tap
+    tap = True
 
 
 def pilImageToSurface(pilImage):
@@ -195,9 +243,6 @@ class Fireball(pygame.sprite.Sprite):
         self.move_y = 0
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
-        global boom_sound, booms
-        boom_sound.play(0)
-        booms += 1
 
     def update(self):
         self.rect = self.rect.move(self.move_x, self.move_y)
@@ -275,7 +320,9 @@ class Mag(pygame.sprite.Sprite):
 
     def boom(self):
         Fireball((self.rect.x, self.rect.y), -(int(self.v) * 2 - 1) * FAST_BOOM)
-        global BOTH
+        global BOTH, boom_sound, booms
+        boom_sound.play(0)
+        booms += 1
         if BOTH:
             Fireball((self.rect.x, self.rect.y), (int(self.v) * 2 - 1) * FAST_BOOM)
 
@@ -545,6 +592,8 @@ class Potion(pygame.sprite.Sprite):
         # вычисляем маску для эффективного сравнения
         self.mask = pygame.mask.from_surface(self.image)
         self.cnt = 0
+        self.alpha = 255
+        self.i = -10
 
     def update(self):
         self.cnt += 1
@@ -573,6 +622,12 @@ class Potion(pygame.sprite.Sprite):
                 self.kill()
         if self.cnt > 200:
             self.death()
+
+        self.alpha += self.i
+        if self.alpha <= 0 or self.alpha >= 255:
+            self.i = -self.i
+            self.i += abs(self.i) // self.i
+        pygame.Surface.set_alpha(self.image, self.alpha)
 
     def death(self):
         self.kill()
@@ -828,10 +883,10 @@ class Button:
         if self.buttonRect.collidepoint(mousePos):
             self.buttonSurface.fill(self.fillColors['hover'])
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
-                if not self.alreadyPressed:
-                    self.buttonSurface.fill(self.fillColors['pressed'])
-                    self.onclickFunction()
-                    self.alreadyPressed = True
+                self.buttonSurface.fill(self.fillColors['pressed'])
+                self.alreadyPressed = True
+                self.onclickFunction()
+                objects.remove(self)
             else:
                 self.alreadyPressed = False
 
@@ -856,12 +911,21 @@ class Gold(pygame.sprite.Sprite):
 
 
 def show_go_screen():
-    global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs
-    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms, r, li
+    global background_fps, currentFrame, gifFrameList, kol_mobs_wave, d_kol_mobs, running
+    global number_wave, kol_mobs, poisons, MOBS_PER_SECOND, kol_bombs, seconds, booms, r, li, tap
     Atime = int(seconds)
     Akills = d_kol_mobs
     Awave = number_wave
     Abooms = booms
+    acc = 0
+    if Abooms:
+        acc = int(Akills / Abooms * 100)
+    con = sqlite3.connect("sessions_db.sqlite")
+    cur = con.cursor()
+    cur.execute("""INSERT INTO sessions(seconds,kills,wave,shots,accuracy) VALUES(?,?,?,?,?)""",
+                (Atime, Akills, Awave, Abooms, acc,))
+    con.commit()
+    con.close()
     f = True
     background = pygame.transform.scale(load_image('gm.png'), (width, height))
     width_gameover = -width - 5
@@ -869,15 +933,6 @@ def show_go_screen():
     while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                acc = 0
-                if Abooms:
-                    acc = int(Akills / Abooms * 100)
-                con = sqlite3.connect("sessions_db.sqlite")
-                cur = con.cursor()
-                cur.execute("""INSERT INTO sessions(seconds,kills,wave,shots,accuracy) VALUES(?,?,?,?,?)""",
-                            (Atime, Akills, Awave, Abooms, acc,))
-                con.commit()
-                con.close()
                 waiting = False
                 terminate()
             if f:
@@ -889,10 +944,10 @@ def show_go_screen():
                     r = False
                 if event.type == pygame.KEYDOWN and (event.key == 100):
                     mag.move(1, 0)
-                li = True
+                    li = True
                 if event.type == pygame.KEYUP and (event.key == 100) and li:
                     mag.move(-1, 0)
-                li = False
+                    li = False
                 if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                     mag.jumper()
                 if event.type == pygame.KEYDOWN and (event.key == 13):
@@ -1006,10 +1061,25 @@ def show_go_screen():
             textRect.bottomright = (width - 50, height - 50)
             screen.blit(text, textRect)
 
+            Button(width // 2 - 200, 50, 400, 100, 'ГЛАВНОЕ МЕНЮ', new_game)
+
+            for new_object in objects:
+                new_object.process()
+                if tap:
+                    tap = False
+                    waiting = False
+                    main()
+
             pygame.display.flip()
 
 
-if __name__ == '__main__':
+def main():
+    global clock, boom_sound, potion_sound, rob_sound, gameover_sound, gifFrameList, currentFrame, gold, mag, kol_mobs
+    global kol_bombs, d_kol_mobs, kills, poisons, number_wave, kol_mobs_wave, booms, r, li, event, seconds
+    global start_ticks, acc, con, cur, mobs_golds, mob, hits1, hits2, hits3, hit, MOBS_PER_SECOND
+    global background_fps, rect, font, t, text, textRect, i, objects, number
+    refresh()
+    pygame.mixer.music.stop()
     pygame.mixer.music.load("sounds/start.mp3")
     pygame.mixer.music.play(-1)
     clock = pygame.time.Clock()
@@ -1055,6 +1125,7 @@ if __name__ == '__main__':
     booms = 0
     r = False
     li = False
+    running = True
     while running:
         seconds = (pygame.time.get_ticks() - start_ticks) / 1000
         for event in pygame.event.get():
@@ -1079,10 +1150,10 @@ if __name__ == '__main__':
                 r = False
             if event.type == pygame.KEYDOWN and (event.key == 100):
                 mag.move(1, 0)
-            li = True
+                li = True
             if event.type == pygame.KEYUP and (event.key == 100) and li:
                 mag.move(-1, 0)
-            li = False
+                li = False
             if event.type == pygame.KEYDOWN and (event.key == 32) and mag.return_kol_jump() <= 1:
                 mag.jumper()
             if event.type == pygame.KEYDOWN and (event.key == 13):
@@ -1099,9 +1170,8 @@ if __name__ == '__main__':
             rob_sound.play()
             if not gold_coins:
                 gameover_sound.play()
-                show_go_screen()
                 running = False
-                terminate()
+                show_go_screen()
 
         hits1 = pygame.sprite.groupcollide(shots, mobs, False, False)
         hits2 = pygame.sprite.groupcollide(mobs, shots, False, False)
@@ -1168,4 +1238,6 @@ if __name__ == '__main__':
 
         pygame.display.flip()
 
-    pygame.quit()
+
+if __name__ == '__main__':
+    main()
