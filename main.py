@@ -28,7 +28,7 @@ POISONS = [(5, "JUMP"), (-5, "JUMP"), (0, "BOOMS"), (-FAST_MOB, "STOP"), (1, "RU
 DEATHS = ["sounds/death1.mp3", "sounds/death2.mp3", "sounds/death3.mp3", "sounds/death4.mp3"]
 background_fps = 0
 FLAG = False
-tap = False
+tap = 0
 BOTH = False
 
 horizontal_borders = pygame.sprite.Group()
@@ -101,29 +101,21 @@ def refresh():
 
 
 def start_screen():
-    intro_text = ["Guardian", "",
-                  "Правила игры",
-                  "Ваша задача не подпустить врагов к вашему золоту,",
-                  "У вас будет 20 монет (в левом верхнем углу)",
-                  "Гномы будут их красть (по 1 монете)",
-                  "Каждую пятую волну приходить босс, который медленнее остальных,",
-                  "но имеет большой запас здоровья и крадёт 5 монет",
-                  "зелья появляются каждые 20 секунд и могут принести баф или дебаф",
-                  "enter - стрелять,",
-                  "space - прыжок,",
-                  "a, d - движение"]
+    intro_text = ["Guardian"]
 
     fon = pygame.transform.scale(load_image('fon.png'), (width, height))
     screen.blit(fon, (0, 0))
-    font_text = pygame.font.SysFont('gabriola', 50)
+    font_text = pygame.font.SysFont(None, 100)
     text_coord = 50
-    button = Button(width - 450, 50, 300, 100, 'НАЧАТЬ ИГРУ', new_game)
+    Button(width // 2 - 150, height // 2 - 120, 300, 100, 'НАЧАТЬ ИГРУ', new_game)
+    Button(width // 2 - 150, height // 2, 300, 100, 'ОБУЧЕНИЕ', new_game, 2)
+    Button(width // 2 - 150, height // 2 + 120, 300, 100, 'ОБ ИГРЕ', new_game, 3)
     for line in intro_text:
         string_rendered = font_text.render(line, 1, pygame.Color('yellow'))
         intro_rect = string_rendered.get_rect()
         text_coord += 10
         intro_rect.top = text_coord
-        intro_rect.x = 10
+        intro_rect.centerx = width // 2
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
     while True:
@@ -134,17 +126,88 @@ def start_screen():
         for new_object in objects:
             new_object.process()
             global tap
-            if tap:
-                tap = False
+            if tap == 1:
+                tap = 0
                 return  # начинаем игру
+            if tap == 2:
+                tap = 0
+                rools_screen()
+                return
+            if tap == 3:
+                tap = 0
+                ob_screen()
+                return
+
+        pygame.display.flip()
+        clock.tick(fps)
+
+def rools_screen():
+    fon = pygame.transform.scale(load_image('fon.png'), (width, height))
+    rools = pygame.transform.scale(load_image('rools.png'), (width - 195, height - 130))
+    screen.blit(fon, (0, 0))
+    screen.blit(rools, (97, 105))
+    button = Button(10, 10, 200, 75, 'НАЗАД', new_game)
+    while True:
+        for new_event in pygame.event.get():
+            if new_event.type == pygame.QUIT:
+                terminate()
+
+        for new_object in objects:
+            new_object.process()
+            global tap
+            if tap == 1:
+                tap = 0
+                start_screen()
+                return
 
         pygame.display.flip()
         clock.tick(fps)
 
 
-def new_game():
+def ob_screen():
+    intro_text = ["Guardian", "", "Разработчики - Камендов Андрей", "", "Git - https://github.com/Andrey0388/Guardian",
+                  "", "Игра была создана как проект Pygame для Яндекс.Лицея"]
+
+    fon = pygame.transform.scale(load_image('fon.png'), (width, height))
+    screen.blit(fon, (0, 0))
+    font_text = pygame.font.SysFont(None, 23)
+    text_coord = 100
+    button = Button(10, 10, 200, 75, 'НАЗАД', new_game)
+    for line in intro_text:
+        string_rendered = font_text.render(line, 1, pygame.Color('yellow'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        intro_rect.top = text_coord
+        intro_rect.centerx = width // 2
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+    while True:
+        for new_event in pygame.event.get():
+            if new_event.type == pygame.QUIT:
+                terminate()
+
+        for new_object in objects:
+            new_object.process()
+            global tap
+            if tap == 1:
+                tap = 0
+                return  # начинаем игру
+            if tap == 2:
+                tap = 0
+                rools_screen()
+                return
+            if tap == 3:
+                tap = 0
+                rools_screen()
+                return
+
+        pygame.display.flip()
+        clock.tick(fps)
+
+
+def new_game(num):
     global tap
-    tap = True
+    tap = num
 
 
 def pilImageToSurface(pilImage):
@@ -856,13 +919,14 @@ def create_coins(columns, row):
 
 
 class Button:
-    def __init__(self, x, y, widthd, heightd, text, function):
+    def __init__(self, x, y, widthd, heightd, text, function, num=1):
         self.x = x
         self.y = y
         self.width = widthd
         self.height = heightd
         self.text = text
         self.function = function
+        self.num = num
 
         # Загрузка изображения кнопки
         self.default_image = image = pygame.transform.scale(load_image('button_image.png'), (self.width, self.height))
@@ -880,14 +944,16 @@ class Button:
             self.image = self.hover_image
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
                 self.image = self.click_image
-                self.function()
+                self.function(self.num)
                 objects.remove(self)
+                for i in objects:
+                    objects.remove(i)
 
         # Отрисовка кнопки на экране
         screen.blit(self.image, (self.x, self.y))
 
         # Отрисовка текста на кнопке
-        font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, self.height // 2 - 5)
         text = font.render(self.text, True, (25, 25, 25))
         text_rect = text.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
         screen.blit(text, text_rect)
@@ -1061,8 +1127,8 @@ def show_go_screen():
 
             for new_object in objects:
                 new_object.process()
-                if tap:
-                    tap = False
+                if tap == 1:
+                    tap = 0
                     waiting = False
                     main()
 
@@ -1073,7 +1139,7 @@ def main():
     global clock, boom_sound, potion_sound, rob_sound, gameover_sound, gifFrameList, currentFrame, gold, mag, kol_mobs
     global kol_bombs, d_kol_mobs, kills, poisons, number_wave, kol_mobs_wave, booms, r, li, event, seconds
     global start_ticks, acc, con, cur, mobs_golds, mob, hits1, hits2, hits3, hit, MOBS_PER_SECOND
-    global background_fps, rect, font, t, text, textRect, i, objects, number
+    global background_fps, rect, font, t, text, textRect, i, objects, number, screen, width, height
     refresh()
     pygame.mixer.music.stop()
     pygame.mixer.music.load("sounds/start.mp3")
@@ -1106,7 +1172,7 @@ def main():
     mag = Mag((X_MAG_POS, Y_MAG_POS))
 
     # coins
-    create_coins(1, 1)
+    create_coins(2, 10)
 
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0
@@ -1137,6 +1203,7 @@ def main():
                 con.close()
                 running = False
                 terminate()
+
             # mag
             if event.type == pygame.KEYDOWN and (event.key == 97):
                 mag.move(-1, 0)
