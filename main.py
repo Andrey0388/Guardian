@@ -170,7 +170,7 @@ def ob_screen():
 
     fon = pygame.transform.scale(load_image('fon.png'), (width, height))
     screen.blit(fon, (0, 0))
-    font_text = pygame.font.SysFont(None, 23)
+    font_text = pygame.font.SysFont(None, 50)
     text_coord = 100
     button = Button(10, 10, 200, 75, 'НАЗАД', new_game)
     for line in intro_text:
@@ -191,14 +191,7 @@ def ob_screen():
             global tap
             if tap == 1:
                 tap = 0
-                return  # начинаем игру
-            if tap == 2:
-                tap = 0
-                rools_screen()
-                return
-            if tap == 3:
-                tap = 0
-                rools_screen()
+                start_screen()
                 return
 
         pygame.display.flip()
@@ -945,9 +938,7 @@ class Button:
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
                 self.image = self.click_image
                 self.function(self.num)
-                objects.remove(self)
-                for i in objects:
-                    objects.remove(i)
+                objects.clear()
 
         # Отрисовка кнопки на экране
         screen.blit(self.image, (self.x, self.y))
