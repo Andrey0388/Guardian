@@ -117,7 +117,7 @@ def start_screen():
     screen.blit(fon, (0, 0))
     font_text = pygame.font.SysFont('gabriola', 50)
     text_coord = 50
-    Button(width - 450, 50, 400, 100, 'НАЧАТЬ ИГРУ', new_game)
+    button = Button(width - 450, 50, 300, 100, 'НАЧАТЬ ИГРУ', new_game)
     for line in intro_text:
         string_rendered = font_text.render(line, 1, pygame.Color('yellow'))
         intro_rect = string_rendered.get_rect()
@@ -856,45 +856,41 @@ def create_coins(columns, row):
 
 
 class Button:
-    def __init__(self, x, y, width, height, buttonText, onclickFunction):
+    def __init__(self, x, y, widthd, heightd, text, function):
         self.x = x
         self.y = y
-        self.width = width
-        self.height = height
-        self.onclickFunction = onclickFunction
-        self.alreadyPressed = False
+        self.width = widthd
+        self.height = heightd
+        self.text = text
+        self.function = function
 
-        self.fillColors = {
-            'normal': '#ffffff',
-            'hover': '#666666',
-            'pressed': '#333333',
-        }
+        # Загрузка изображения кнопки
+        self.default_image = image = pygame.transform.scale(load_image('button_image.png'), (self.width, self.height))
+        self.hover_image = image = pygame.transform.scale(load_image('button_image_hover.png'), (self.width, self.height))
+        self.click_image = image = pygame.transform.scale(load_image('button_image_click.png'), (self.width, self.height))
 
-        self.buttonSurface = pygame.Surface((self.width, self.height))
-        self.buttonRect = pygame.Rect(self.x, self.y, self.width, self.height)
-        font = pygame.font.SysFont('Arial', 40)
-        self.buttonSurf = font.render(buttonText, True, (20, 20, 20))
+        self.image = self.default_image
 
         objects.append(self)
 
     def process(self):
         mousePos = pygame.mouse.get_pos()
-        self.buttonSurface.fill(self.fillColors['normal'])
-        if self.buttonRect.collidepoint(mousePos):
-            self.buttonSurface.fill(self.fillColors['hover'])
+        self.image = self.default_image
+        if self.x < mousePos[0] < self.x + self.width and self.y < mousePos[1] < self.y + self.height:
+            self.image = self.hover_image
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
-                self.buttonSurface.fill(self.fillColors['pressed'])
-                self.alreadyPressed = True
-                self.onclickFunction()
+                self.image = self.click_image
+                self.function()
                 objects.remove(self)
-            else:
-                self.alreadyPressed = False
 
-        self.buttonSurface.blit(self.buttonSurf, [
-            self.buttonRect.width / 2 - self.buttonSurf.get_rect().width / 2,
-            self.buttonRect.height / 2 - self.buttonSurf.get_rect().height / 2
-        ])
-        screen.blit(self.buttonSurface, self.buttonRect)
+        # Отрисовка кнопки на экране
+        screen.blit(self.image, (self.x, self.y))
+
+        # Отрисовка текста на кнопке
+        font = pygame.font.Font(None, 36)
+        text = font.render(self.text, True, (25, 25, 25))
+        text_rect = text.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+        screen.blit(text, text_rect)
 
 
 class Gold(pygame.sprite.Sprite):
@@ -1061,7 +1057,7 @@ def show_go_screen():
             textRect.bottomright = (width - 50, height - 50)
             screen.blit(text, textRect)
 
-            Button(width // 2 - 200, 50, 400, 100, 'ГЛАВНОЕ МЕНЮ', new_game)
+            Button(width // 2 - 150, 50, 300, 100, 'ГЛАВНОЕ МЕНЮ', new_game)
 
             for new_object in objects:
                 new_object.process()
@@ -1110,7 +1106,7 @@ def main():
     mag = Mag((X_MAG_POS, Y_MAG_POS))
 
     # coins
-    create_coins(2, 10)
+    create_coins(1, 1)
 
     start_ticks = pygame.time.get_ticks()  # starter tick
     kol_bombs = 0
