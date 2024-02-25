@@ -1278,12 +1278,12 @@ def main():
         all_sprites.draw(screen)
         all_sprites.update()
 
-        font = pygame.font.SysFont('gabriola', 50)
-        t = "fps: " + str(int(clock.get_fps()))
-        text = font.render(t, True, (255, 0, 0))
-        textRect = text.get_rect()
-        textRect.bottomright = (width - 10, height - 10)
-        screen.blit(text, textRect)
+        # font = pygame.font.SysFont('gabriola', 50)
+        # t = "fps: " + str(int(clock.get_fps()))
+        # text = font.render(t, True, (255, 0, 0))
+        # textRect = text.get_rect()
+        # textRect.bottomright = (width - 10, height - 10)
+        # screen.blit(text, textRect)
 
         for i in text_effects:
             i.update(screen)
